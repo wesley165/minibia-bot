@@ -27,7 +27,7 @@ main() {
   if ! als "git fetch -q origin"; then zet mislukt "GitHub is niet bereikbaar. Probeer het later nog eens."; return 1; fi
   nieuw=$(als "git rev-parse origin/main")
   if [ "$oud" = "$nieuw" ]; then
-    zet klaar "Je hebt al de nieuwste versie ($(als 'git log --oneline -1 | cut -c1-60'))."
+    zet klaar "Je hebt al de nieuwste versie ($(als "git log -1 --format='%h van %cd' --date=format:'%d-%m %H:%M'"))."
     return 0
   fi
   zet bezig "Nieuwe versie gevonden. Wachten tot er geen monsters in de buurt zijn (max 60 s)."
@@ -53,7 +53,7 @@ main() {
     systemctl restart minibia-bot
     sleep 5
   fi
-  zet klaar "Klaar: nu op $(als 'git log --oneline -1 | cut -c1-60')."
+  zet klaar "Klaar: nu op $(als "git log -1 --format='%h van %cd' --date=format:'%d-%m %H:%M'")."
   return 0
 }
 main "$@"
