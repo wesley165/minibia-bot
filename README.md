@@ -143,3 +143,5 @@ Pas je alleen iets aan in `src/` of `dashboard/`? Dan is het genoeg om de server
 - **Log niet twee keer tegelijk in met hetzelfde account.** Dus geen tweede tabblad, niet tegelijk de Minibia-app en een tabblad, en geen andere browser. Dan raakt het spel in de war en kan de bot rare dingen doen.
 - **Je kunt een ban krijgen.** Een bot gebruiken kan tegen de regels van Minibia zijn. Je account kan dan geblokkeerd worden. Dat risico ligt bij jou.
 - Blijf in de buurt als de bot speelt. Kijk regelmatig in het dashboard.
+
+De VPS haalt nieuwe versies automatisch op van GitHub (minibia-github.timer, elke 10 minuten, alleen als het rustig is).
