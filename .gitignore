@@ -18,7 +18,7 @@
 !/data/sets/
 !/data/config.example.json
 !/data/verken-*.json
-/data/*.bak*
+*.bak*
 /data/*voor-check*
 
 # Nooit: sleutels, tokens, wachtwoorden, gebouwde bestanden
