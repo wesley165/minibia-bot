@@ -28,45 +28,6 @@ function loadToken(root) {
   return t;
 }
 
-// Quiz-AI: meerkeuzevragen van de anti-bot-controle beantwoorden via Claude.
-// Geen API-key = geen AI (de bot valt terug op uitloggen, zoals voorheen).
-const QUIZ_SYSTEM = [
-  'Je lost korte meerkeuzevragen op uit een quiz in een online spel.',
-  'Antwoord ALLEEN met één cijfer: het indexnummer van het juiste antwoord.',
-  'Geen toelichting, geen leestekens, geen tekst eromheen.'
-].join(' ');
-
-async function callQuizClaude(question, options) {
-  const key = process.env.ANTHROPIC_API_KEY || '';
-  if (!key) throw new Error('geen ANTHROPIC_API_KEY');
-  const list = options.map((o, i) => i + ': ' + o).join('\n');
-  const userText = 'Vraag: ' + question + '\n\nOpties:\n' + list;
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'x-api-key': key,
-      'anthropic-version': '2023-06-01',
-      'content-type': 'application/json'
-    },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5',
-      max_tokens: 8,
-      system: QUIZ_SYSTEM,
-      messages: [{ role: 'user', content: userText }]
-    })
-  });
-  if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    throw new Error('Anthropic HTTP ' + res.status + ': ' + body.slice(0, 120));
-  }
-  const data = await res.json();
-  const text = (data.content || []).filter((p) => p.type === 'text').map((p) => p.text).join('').trim();
-  const m = /(\d+)/.exec(text);
-  if (!m) return -1;
-  const idx = Number(m[1]);
-  return idx >= 0 && idx < options.length ? idx : -1;
-}
-
 function createBridge({ root, onEvent, log }) {
   const token = loadToken(root);
   let queue = [];            // opdrachten die nog naar de pagina moeten
@@ -239,24 +200,6 @@ function createBridge({ root, onEvent, log }) {
     if (pathname === '/bridge/secret' && req.method === 'GET') {
       seen();
       return sendJson(res, 200, { password: process.env.GAME_PASSWORD || '' });
-    }
-
-    // AI-oplosser voor de quiz: de extensie stuurt vraag + opties, wij
-    // vragen Claude en sturen het indexnummer van de gekozen optie terug.
-    // Alleen bereikbaar met de bridge-sleutel (hierboven gecontroleerd).
-    if (pathname === '/bridge/quiz' && req.method === 'POST') {
-      seen();
-      const body = await readBody(req);
-      const question = String((body && body.question) || '').slice(0, 800);
-      const options = Array.isArray(body && body.options) ? body.options.slice(0, 12).map((o) => String(o || '').slice(0, 160)) : [];
-      if (!question || options.length < 2) return sendJson(res, 200, { choice: -1 });
-      try {
-        const choice = await callQuizClaude(question, options);
-        return sendJson(res, 200, { choice: choice });
-      } catch (e) {
-        log('Quiz-AI mislukt: ' + (e && e.message ? e.message : e));
-        return sendJson(res, 200, { choice: -1 });
-      }
     }
 
     if (pathname === '/bridge/poll' && req.method === 'GET') {

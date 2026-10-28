@@ -240,23 +240,25 @@ function createServer(opts) {
       }
     }
 
-    if (pathname === '/api/update-from-github') {
-      const reqFile = path.join(opts.root, 'data', 'bijwerk-verzoek');
-      const stateFile = path.join(opts.root, 'data', 'bijwerk-status.json');
+    // Nieuwste versie van GitHub installeren. Net als bij de herstart: de server legt
+    // een verzoekbestand neer en minibia-bijwerken.path voert scripts/bijwerken-knop.sh uit.
+    if (pathname === '/api/update-github') {
+      const reqFile = path.join(opts.root, 'data', 'bijwerken-verzoek');
+      const stateFile = path.join(opts.root, 'data', 'bijwerken-status.json');
       if (method === 'GET') {
         let st = null;
         try { st = JSON.parse(fs.readFileSync(stateFile, 'utf8')); } catch (e) { st = null; }
         return sendJson(res, 200, { ok: true, pending: fs.existsSync(reqFile), status: st });
       }
       if (method === 'POST') {
-        if (fs.existsSync(reqFile)) return sendJson(res, 409, { ok: false, error: 'Er staat al een bijwerking klaar.' });
         try {
           const last = fs.statSync(stateFile).mtimeMs;
           const st = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
-          if (st && st.stap !== 'klaar' && st.stap !== 'mislukt' && Date.now() - last < 2 * 60 * 1000) {
-            return sendJson(res, 409, { ok: false, error: 'Er loopt al een bijwerking.' });
+          if (st && st.stap !== 'klaar' && st.stap !== 'mislukt' && Date.now() - last < 5 * 60 * 1000) {
+            return sendJson(res, 409, { ok: false, error: 'Er loopt al een update.' });
           }
         } catch (e) { /* nog nooit gedaan */ }
+        if (fs.existsSync(reqFile)) return sendJson(res, 409, { ok: false, error: 'Er staat al een update klaar.' });
         fs.writeFileSync(reqFile, String(Date.now()) + '\n');
         return sendJson(res, 200, { ok: true });
       }

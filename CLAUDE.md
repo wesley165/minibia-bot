@@ -50,6 +50,7 @@ Meldingen gaan ook naar de telefoon via ntfy (topic in de config).
 
 ## Knoppen in het dashboard (sinds 28 okt 2026)
 - Herstart: POST /api/restart-browser legt data/herstart-verzoek neer. minibia-herstart.path start /root/herstart.sh (wacht max 30 s op rust, herstart minibia-chrome, start de bot, status in data/herstart-status.json, log /var/log/minibia-herstart.log).
+- Bijwerken: POST /api/update-github legt data/bijwerken-verzoek neer. minibia-bijwerken.path start /root/bijwerken-knop.sh, een kopie van scripts/bijwerken-knop.sh (wacht max 60 s op rust, anders niets; dan van-github.sh; bij src/ ook restart minibia-bot; mislukt het halverwege, dan terug naar de oude versie). Na een wijziging aan dit script of van-github.sh: kopie in /root vernieuwen. Status in data/bijwerken-status.json, log /var/log/minibia-bijwerken.log.
 - Live beeld: noVNC loopt via het dashboard zelf op /vnc/ (websocket /vnc/websockify, alleen met een geldige dashboard-sessie). Aan/uit via POST /api/vnc {"aan":true|false}; minibia-vnc-schakel.path start /root/vnc-schakel.sh. Een SSH-tunnel is niet meer nodig.
 - nginx-proxy (docker minibia-proxy) staat in /opt/minibia-proxy/default.conf, met een aparte location voor /vnc/websockify. Back-up: /root/minibia-proxy.conf.bak.
 
@@ -65,3 +66,9 @@ Meldingen gaan ook naar de telefoon via ntfy (topic in de config).
 - data/kills.jsonl bewaart per kill ook de plek van John (x, y, z).
 - Orc Fortress (verdieping 7): binnen de muren ongeveer 32887,31747 tot 32980,31808. Kaart: data/verken-32821-31770-7.json.
 - Targeting: ignoreNames (bijv. Chicken) wordt nooit aangevallen; Orc Leader heeft always=true (gaat altijd voor).
+
+# GitHub (sinds 28 oktober 2026)
+1 De code staat in de privé-repository wesley165/minibia-bot. Deze map op de VPS is een git-kopie daarvan (branch main).
+2 De VPS mag alleen lezen van GitHub (deploy key ~minibia/.ssh/github_minibia_bot). Pushen vanaf de VPS kan niet.
+3 Bijwerken gaat automatisch: minibia-github.timer draait elke 10 minuten `AUTO=1 scripts/van-github.sh`. Alleen als het rustig is (geen monsters, geen pauze); dan bouwen + herladen bij page/extension, melding via ntfy. Bij src/ alleen een melding (herstart minibia-bot zelf). Met de hand: `bash /home/minibia/bot/scripts/van-github.sh`.
+4 Wachtwoorden, tokens, config.json, logs en chat staan nooit in Git (.gitignore laat alleen code, routes en kaarten toe).
