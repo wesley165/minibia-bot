@@ -425,10 +425,15 @@
         <div class="settings" style="margin-bottom: 0.75rem;">
           <label class="check">
             <input id="sAiReply" type="checkbox">
-            AI auto-reply
+            AI-chat aan/uit — AI auto-reply op GM/CM/Tutor-berichten (Claude)
             <span id="aiReplyState" class="muted small"> (uit)</span>
           </label>
           <p class="muted small" style="margin: 0.25rem 0 0 1.5rem;">Staat dit aan, dan antwoordt Claude na ~2 seconden automatisch op berichten van GM/CM/Tutor. Standaard uit.</p>
+          <label class="check">
+            <input id="sQuizResolveChat" type="checkbox">
+            Resolve quizzes aan/uit — de bot probeert de quiz zelf op te lossen; lukt het niet: uitloggen
+          </label>
+          <p class="muted small" style="margin: 0.25rem 0 0 1.5rem;">Dezelfde schakelaar als bij Veiligheid → Chat en inloggen. Staat hij uit, dan doet de bot géén eigen pogingen en logt hij bij een quiz netjes uit (jij hebt ~20 s om zelf te antwoorden).</p>
         </div>
         <ul id="chatList" class="chat-list"></ul>
         <p id="chatEmpty" class="muted">Nog geen berichten.</p>
