@@ -2,8 +2,8 @@
   'use strict';
 
   // Safety: herkent gevaar en zegt tegen de engine 'pause' of 'alert'.
-  // Harde regel: de anti-bot-controle (captcha) wordt nooit opgelost of omzeild.
-  // We kijken alleen of het venster open staat en pauzeren dan.
+  // Bij de anti-bot-controle pauzeren we; captchawatch probeert de quiz
+  // zelf op te lossen (rekensommen, rasters, meerkeuze via de AI).
 
   // Afkoeltijd per reden in ms. Zo komen er geen stapels meldingen.
   var COOLDOWN = {
@@ -39,8 +39,17 @@
     var p = ctx.player;
 
     // 1. Quiz (anti-bot-controle): alleen herkennen en pauzeren.
-    if (api.modalVisible('captcha-modal')) {
-      return pauseResult('captcha', 'Quiz staat open. Los hem zelf op.', now);
+    //    Eerst de gedeelde detectie van captchawatch (modal óf .captcha-element),
+    //    met de modalVisible-check als terugval als die module niet geladen is.
+    var quizOpen = false;
+    if (B.captchawatch && typeof B.captchawatch.quizVisible === 'function') {
+      try { quizOpen = !!B.captchawatch.quizVisible(); } catch (e) { quizOpen = false; }
+    }
+    if (!quizOpen) {
+      try { quizOpen = !!api.modalVisible('captcha-modal'); } catch (e) { quizOpen = false; }
+    }
+    if (quizOpen) {
+      return pauseResult('captcha', 'Quiz staat open. Ik probeer hem zelf op te lossen; lukt dat niet, dan log ik uit.', now);
     }
 
     // 2. Dood.

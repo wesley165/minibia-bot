@@ -125,5 +125,9 @@
       "apiKey": "",
       "systemPrompt": "Je bent een gewone Minibia-speler. Antwoord kort (max 1-2 zinnen, ~120 tekens), vriendelijk en natuurlijk. Geen markdown, geen bot-taal."
     }
+  },
+  "quiz": {
+    "resolve": true,
+    "giveUpMs": 90000
   }
 }

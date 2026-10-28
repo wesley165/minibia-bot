@@ -17,10 +17,20 @@
     try { return String(window.gameClient.player.name || ''); } catch (e) { return ''; }
   }
 
+  // Staat de AI-auto-reply aan? De instelling komt van het dashboard
+  // (config.chat.aiReply.enabled). Zo kun je in het log zien of een bericht
+  // automatisch beantwoord wordt of dat jij het zelf moet doen.
+  function aiOn() {
+    try {
+      var cfg = B.engine && B.engine.getConfig ? B.engine.getConfig() : null;
+      return !!(cfg && cfg.chat && cfg.chat.aiReply && cfg.chat.aiReply.enabled);
+    } catch (e) { return false; }
+  }
+
   function report(kind, from, text, channel) {
     var E = B.engine;
     if (!E) return;
-    var msg = { kind: kind, from: String(from || ''), text: String(text || '').slice(0, 300), channel: String(channel || ''), time: Date.now() };
+    var msg = { kind: kind, from: String(from || ''), text: String(text || '').slice(0, 300), channel: String(channel || ''), ai: aiOn(), time: Date.now() };
     E.emit('chat', msg);
     // Chat negeren (standaard): gewoon doorgaan.
     var cfg = E.getConfig ? E.getConfig() : null;
@@ -73,6 +83,22 @@
 
     // addMessage niet meer apart voor staff-namen: geen auto-stop meer op GM/CM/Tutor.
     if (B.engine) B.engine.log('Privéberichten worden nu bewaakt.');
+
+    // Eigen berichten die in het spel binnenkomen ook in het log en dashboard
+    // tonen (met een prefix), zodat je één compleet gesprek ziet. De engine
+    // telt alleen inkomende berichten als kills/PM's; 'sent' wordt herkend.
+    var origAdd = proto.addMessage;
+    proto.addMessage = function (message, name, level) {
+      try {
+        if (!inPm && String(name || '').toLowerCase() === myName().toLowerCase()) {
+          var E = B.engine;
+          if (E && !B.chat.__muteSelfEcho) {
+            E.emit('chat', { kind: 'sent', from: name, to: '', text: String(message || '').slice(0, 300), channel: String(this.name || ''), self: true, time: Date.now() });
+          }
+        }
+      } catch (e) { /* nooit het spel breken */ }
+      return origAdd.apply(this, arguments);
+    };
   }
 
   // Zelf antwoorden vanuit het dashboard. De tekst komt altijd van jou.
@@ -88,6 +114,10 @@
     var ch = cm.getChannel(to);
     // Alleen een echt privétabblad (geen Default, World of Trade).
     if (ch && !(typeof PrivateChannel !== 'undefined' && ch instanceof PrivateChannel)) ch = null;
+    // Eigen echo onderdrukken: het spel geeft dit bericht zelf ook terug via
+    // addMessage. Zonder deze vlag zou het dubbel in dashboard en chat.jsonl staan.
+    B.chat.__muteSelfEcho = true;
+    setTimeout(function () { B.chat.__muteSelfEcho = false; }, 1500);
     if (ch && typeof cm.__handlePrivateMessageSend === 'function') {
       // Zoals het spel het zelf doet als je typt in een privétabblad.
       cm.__handlePrivateMessageSend(ch, text);

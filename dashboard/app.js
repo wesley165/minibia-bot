@@ -1244,6 +1244,8 @@
     $('sDesktop').checked = n.desktop !== false;
     $('sAutoLogin').checked = !!(S.config && S.config.autoLogin && S.config.autoLogin.enabled);
     $('sChatPause').checked = !!(S.config && S.config.chat && S.config.chat.pause);
+    var qz = $('sQuizResolve');
+    if (qz) qz.checked = !(S.config && S.config.quiz && S.config.quiz.resolve === false);
     renderAiReplyToggle();
   }
 
@@ -1304,6 +1306,23 @@
     var on = e.target.checked;
     saveConfigPart('safetyMsg', 'safetySave', function (cfg) {
       cfg.autoLogin = Object.assign({ account: 'wess', character: 'Wess' }, cfg.autoLogin || {}, { enabled: on });
+    });
+  });
+
+  // Resolve quizzes aan of uit: aan = de bot probeert de quiz zelf op te
+  // lossen (standaard); uit = hij doet geen eigen pogingen en logt bij een
+  // quiz netjes uit. Direct opslaan.
+  if ($('sQuizResolve')) $('sQuizResolve').addEventListener('change', function (e) {
+    var on = e.target.checked;
+    saveConfigPart('safetyMsg', 'safetySave', function (cfg) {
+      cfg.quiz = Object.assign({ giveUpMs: 90000 }, cfg.quiz || {}, { resolve: on });
+    }).then(function (ok) {
+      if (ok) {
+        if (!S.config.quiz) S.config.quiz = {};
+        S.config.quiz.resolve = !!on;
+      } else {
+        e.target.checked = !on;
+      }
     });
   });
 

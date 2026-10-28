@@ -90,10 +90,35 @@
       if (cmd.name === '__setRoute') return E.setRoute(cmd.args);
       if (cmd.name === '__setRoutes') return E.setRoutes ? E.setRoutes(cmd.args) : { ok: false };
       if (cmd.name === '__setWanted') return E.setWanted ? E.setWanted(cmd.args) : { ok: false };
+      // AI-oplosser voor de quiz: captchawatch roept dit aan via engine.
+      // Async (netwerk), dus apart afhandelen vóór E.command.
+      if (cmd.name === 'quizAnswer') return quizAnswer(cmd.args);
       return E.command(cmd.name, cmd.args);
     } catch (e) {
       return { ok: false, error: e.message };
     }
+  }
+
+  // Quizvraag + opties naar Claude sturen en het gekozen indexnummer
+  // teruggeven. Gebeurt hier (in de paginacontext) omdat alleen dit script
+  // de bridge mag aanspreken; de engine belt aan via B.__bridge.command.
+  function quizAnswer(args) {
+    var question = String((args && args.question) || '');
+    var options = (args && args.options) || [];
+    if (!question || !options.length) return Promise.resolve({ choice: -1 });
+    var list = options.map(function (o, i) { return i + ': ' + o; }).join('\n');
+    var prompt =
+      'Dit is een anti-bot quiz uit een spel. Kies het juiste antwoord.\n\n' +
+      'Vraag: ' + question + '\n\nOpties:\n' + list +
+      '\n\nAntwoord ALLEEN met één cijfer: het indexnummer van de juiste optie.';
+    var body = JSON.stringify({ question: question, options: options, prompt: prompt });
+    return timedFetch(URL_BASE + '/bridge/quiz', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-WJ-Token': TOKEN, 'X-WJ-Tab': TAB },
+      body: body
+    }, 30000).then(function (r) { return r.json(); })
+      .then(function (d) { return { choice: d && typeof d.choice === 'number' ? d.choice : -1 }; })
+      .catch(function () { return { choice: -1 }; });
   }
 
   function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
