@@ -39,6 +39,8 @@
       <button id="btnPause" class="btn">Pauze</button>
       <button id="btnResume" class="btn">Doorgaan</button>
       <button id="btnStop" class="btn btn-danger">Stop</button>
+      <button id="btnBijwerken" class="btn" type="button" title="De nieuwste versie van GitHub direct op de VPS zetten">Bijwerken</button>
+      <span id="bijwerkMsg" class="state-reason" role="status"></span>
       <button id="btnRestart" class="btn" type="button" title="Browser opnieuw opstarten, inloggen en de bot starten">Herstart</button>
       <a id="btnVnc" class="btn" href="/vnc/vnc.html?autoconnect=true&amp;resize=scale&amp;path=vnc/websockify" target="_blank" rel="noopener" title="Live beeld van Chrome op de VPS">Live beeld</a>
       <button id="btnVncOff" class="btn" type="button" title="Live beeld uitzetten (scheelt rekenkracht op de VPS)" hidden>Live uit</button>
@@ -522,6 +524,7 @@
   <script src="events.js"></script>
   <script src="theme.js"></script>
   <script src="restart.js"></script>
+  <script src="bijwerken.js"></script>
   <script src="vnc.js"></script>
 </body>
 </html>

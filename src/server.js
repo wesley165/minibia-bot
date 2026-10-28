@@ -240,6 +240,28 @@ function createServer(opts) {
       }
     }
 
+    if (pathname === '/api/update-from-github') {
+      const reqFile = path.join(opts.root, 'data', 'bijwerk-verzoek');
+      const stateFile = path.join(opts.root, 'data', 'bijwerk-status.json');
+      if (method === 'GET') {
+        let st = null;
+        try { st = JSON.parse(fs.readFileSync(stateFile, 'utf8')); } catch (e) { st = null; }
+        return sendJson(res, 200, { ok: true, pending: fs.existsSync(reqFile), status: st });
+      }
+      if (method === 'POST') {
+        if (fs.existsSync(reqFile)) return sendJson(res, 409, { ok: false, error: 'Er staat al een bijwerking klaar.' });
+        try {
+          const last = fs.statSync(stateFile).mtimeMs;
+          const st = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+          if (st && st.stap !== 'klaar' && st.stap !== 'mislukt' && Date.now() - last < 2 * 60 * 1000) {
+            return sendJson(res, 409, { ok: false, error: 'Er loopt al een bijwerking.' });
+          }
+        } catch (e) { /* nog nooit gedaan */ }
+        fs.writeFileSync(reqFile, String(Date.now()) + '\n');
+        return sendJson(res, 200, { ok: true });
+      }
+    }
+
     if (pathname === '/api/command' && method === 'POST') {
       const body = await readBody(req);
       if (!body || typeof body.name !== 'string' || !body.name) {
