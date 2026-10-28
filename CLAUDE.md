@@ -65,3 +65,9 @@ Meldingen gaan ook naar de telefoon via ntfy (topic in de config).
 - data/kills.jsonl bewaart per kill ook de plek van John (x, y, z).
 - Orc Fortress (verdieping 7): binnen de muren ongeveer 32887,31747 tot 32980,31808. Kaart: data/verken-32821-31770-7.json.
 - Targeting: ignoreNames (bijv. Chicken) wordt nooit aangevallen; Orc Leader heeft always=true (gaat altijd voor).
+
+# GitHub (sinds 28 oktober 2026)
+1 De code staat in de privé-repository wesley165/minibia-bot. Deze map op de VPS is een git-kopie daarvan (branch main).
+2 De VPS mag alleen lezen van GitHub (deploy key ~minibia/.ssh/github_minibia_bot). Pushen vanaf de VPS kan niet.
+3 Bijwerken: als root `bash /home/minibia/bot/scripts/van-github.sh`. Dat haalt de nieuwste versie op, bouwt en herlaadt als page/ of extension/ veranderd is, en meldt het als src/ veranderd is (herstart dan zelf minibia-bot).
+4 Wachtwoorden, tokens, config.json, logs en chat staan nooit in Git (.gitignore laat alleen code, routes en kaarten toe).
