@@ -69,5 +69,5 @@ Meldingen gaan ook naar de telefoon via ntfy (topic in de config).
 # GitHub (sinds 28 oktober 2026)
 1 De code staat in de privé-repository wesley165/minibia-bot. Deze map op de VPS is een git-kopie daarvan (branch main).
 2 De VPS mag alleen lezen van GitHub (deploy key ~minibia/.ssh/github_minibia_bot). Pushen vanaf de VPS kan niet.
-3 Bijwerken: als root `bash /home/minibia/bot/scripts/van-github.sh`. Dat haalt de nieuwste versie op, bouwt en herlaadt als page/ of extension/ veranderd is, en meldt het als src/ veranderd is (herstart dan zelf minibia-bot).
+3 Bijwerken gaat automatisch: minibia-github.timer draait elke 10 minuten `AUTO=1 scripts/van-github.sh`. Alleen als het rustig is (geen monsters, geen pauze); dan bouwen + herladen bij page/extension, melding via ntfy. Bij src/ alleen een melding (herstart minibia-bot zelf). Met de hand: `bash /home/minibia/bot/scripts/van-github.sh`.
 4 Wachtwoorden, tokens, config.json, logs en chat staan nooit in Git (.gitignore laat alleen code, routes en kaarten toe).
