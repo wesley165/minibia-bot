@@ -50,6 +50,7 @@ Meldingen gaan ook naar de telefoon via ntfy (topic in de config).
 
 ## Knoppen in het dashboard (sinds 28 okt 2026)
 - Herstart: POST /api/restart-browser legt data/herstart-verzoek neer. minibia-herstart.path start /root/herstart.sh (wacht max 30 s op rust, herstart minibia-chrome, start de bot, status in data/herstart-status.json, log /var/log/minibia-herstart.log).
+- Bijwerken: POST /api/update-github legt data/bijwerken-verzoek neer. minibia-bijwerken.path start scripts/bijwerken-knop.sh (wacht max 60 s op rust, anders niets; dan van-github.sh; bij src/ ook restart minibia-bot). Status in data/bijwerken-status.json, log /var/log/minibia-bijwerken.log.
 - Live beeld: noVNC loopt via het dashboard zelf op /vnc/ (websocket /vnc/websockify, alleen met een geldige dashboard-sessie). Aan/uit via POST /api/vnc {"aan":true|false}; minibia-vnc-schakel.path start /root/vnc-schakel.sh. Een SSH-tunnel is niet meer nodig.
 - nginx-proxy (docker minibia-proxy) staat in /opt/minibia-proxy/default.conf, met een aparte location voor /vnc/websockify. Back-up: /root/minibia-proxy.conf.bak.
 
