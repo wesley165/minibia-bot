@@ -1,0 +1,18 @@
+{
+  "name": "naar-cyclopolis",
+  "waypoints": [
+    {
+      "type": "walk",
+      "x": 33250,
+      "y": 31695,
+      "z": 7
+    },
+    {
+      "type": "floor",
+      "x": 33250,
+      "y": 31697,
+      "z": 7,
+      "label": "trap omlaag"
+    }
+  ]
+}

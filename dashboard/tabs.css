@@ -1,0 +1,71 @@
+/* Tabjes onder de bovenbalk. Blijven bovenaan staan als je scrolt. */
+
+.topbar { position: sticky; top: 0; z-index: 12; }
+
+.tabs {
+  position: sticky;
+  top: var(--tabs-top, 57px);
+  z-index: 11;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-5) 0;
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+}
+
+.tab {
+  position: relative;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  padding: var(--space-2) var(--space-4);
+  border: 0;
+  border-bottom: 3px solid transparent;
+  border-radius: var(--radius-small) var(--radius-small) 0 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.tab:hover { color: var(--text); background: var(--bg); }
+.tab[aria-selected="true"] { color: var(--primary); border-bottom-color: var(--primary); }
+.tab:focus-visible { outline: 2px solid var(--primary-soft); outline-offset: -2px; }
+
+/* Rood bolletje: er is iets nieuws in een tabje dat je niet open hebt. */
+.tab-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-left: var(--space-1);
+  border-radius: 50%;
+  background: var(--danger);
+  vertical-align: middle;
+}
+.tab-dot[hidden] { display: none; }
+
+.tab-panel[hidden] { display: none; }
+
+/* Smalle kaart voor formulieren met één kolom. */
+.grid-narrow { max-width: 760px; }
+
+/* Wel voor schermlezers, niet zichtbaar. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 759px) {
+  /* Op mobiel één rij tabjes die je opzij kunt schuiven (alleen de balk zelf schuift). */
+  .tabs { padding: var(--space-2) var(--space-4) 0; gap: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { flex: 0 0 auto; padding: var(--space-2) var(--space-3); }
+  .topbar { position: static; }
+  .tabs { top: 0; }
+}

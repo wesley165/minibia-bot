@@ -1,0 +1,15 @@
+{
+  "name": "minibia-cavebot",
+  "version": "1.0.0",
+  "description": "Cavebot voor Minibia met een dashboard op 127.0.0.1:3100",
+  "private": true,
+  "type": "commonjs",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "node scripts/build-extension.js && node src/main.js",
+    "build": "node scripts/build-extension.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Minibia-bot</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="gm-chat.css">
+  <link rel="stylesheet" href="tabs.css">
+  <link rel="stylesheet" href="overzicht.css">
+  <link rel="stylesheet" href="extra.css">
+  <link rel="stylesheet" href="events.css">
+  <link rel="stylesheet" href="theme.css">
+  <link rel="stylesheet" href="mobile.css">
+</head>
+<body>
+
+  <!-- Rode balk bij de anti-bot-controle. Blijft staan tot je op Doorgaan klikt. -->
+  <div id="captchaBar" class="captcha-bar" hidden role="alert">
+    <div class="captcha-text">
+      <strong>Anti-bot-controle staat open.</strong>
+      <span>Los hem zelf op in het spel. Klik daarna op Doorgaan.</span>
+      <span id="captchaSound" class="captcha-sound"></span>
+      <span id="captchaError" class="captcha-error"></span>
+    </div>
+    <button id="captchaResume" class="btn btn-big">Doorgaan</button>
+  </div>
+
+  <header class="topbar">
+    <div class="topbar-left">
+      <h1>Minibia-bot</h1>
+      <span id="stateBadge" class="badge badge-muted">Onbekend</span>
+      <span id="stateReason" class="state-reason"></span>
+      <span id="restartMsg" class="state-reason" role="status"></span>
+    </div>
+    <div class="topbar-right">
+      <span id="connBadge" class="conn conn-off">Niet verbonden</span>
+      <button id="btnStart" class="btn btn-ok">Start</button>
+      <button id="btnPause" class="btn">Pauze</button>
+      <button id="btnResume" class="btn">Doorgaan</button>
+      <button id="btnStop" class="btn btn-danger">Stop</button>
+      <button id="btnRestart" class="btn" type="button" title="Browser opnieuw opstarten, inloggen en de bot starten">Herstart</button>
+      <a id="btnVnc" class="btn" href="/vnc/vnc.html?autoconnect=true&amp;resize=scale&amp;path=vnc/websockify" target="_blank" rel="noopener" title="Live beeld van Chrome op de VPS">Live beeld</a>
+      <button id="btnVncOff" class="btn" type="button" title="Live beeld uitzetten (scheelt rekenkracht op de VPS)" hidden>Live uit</button>
+      <button id="btnTheme" class="btn" type="button" aria-pressed="false" title="Licht of donker">Donker</button>
+      <button id="btnLogout" class="btn" type="button">Uitloggen</button>
+    </div>
+  </header>
+
+  <div id="globalMsg" class="global-msg" hidden></div>
+
+  <nav class="tabs" role="tablist" aria-label="Onderdelen">
+    <button id="tabbtn-overzicht" class="tab" type="button" role="tab" data-tab="overzicht" aria-controls="tab-overzicht" aria-selected="true">Overzicht<span class="tab-dot" hidden></span></button>
+    <button id="tabbtn-route" class="tab" type="button" role="tab" data-tab="route" aria-controls="tab-route" aria-selected="false">Route<span class="tab-dot" hidden></span></button>
+    <button id="tabbtn-gevecht" class="tab" type="button" role="tab" data-tab="gevecht" aria-controls="tab-gevecht" aria-selected="false">Gevecht<span class="tab-dot" hidden></span></button>
+    <button id="tabbtn-veiligheid" class="tab" type="button" role="tab" data-tab="veiligheid" aria-controls="tab-veiligheid" aria-selected="false">Veiligheid<span class="tab-dot" hidden></span></button>
+    <button id="tabbtn-chat" class="tab" type="button" role="tab" data-tab="chat" aria-controls="tab-chat" aria-selected="false">Chat<span class="tab-dot" hidden></span></button>
+    <button id="tabbtn-sets" class="tab" type="button" role="tab" data-tab="sets" aria-controls="tab-sets" aria-selected="false">Sets<span class="tab-dot" hidden></span></button>
+    <button id="tabbtn-log" class="tab" type="button" role="tab" data-tab="log" aria-controls="tab-log" aria-selected="false">Log<span class="tab-dot" hidden></span></button>
+  </nav>
+
+  <main class="page">
+
+  <section id="tab-overzicht" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-overzicht">
+    <h2 class="sr-only">Overzicht</h2>
+
+    <!-- Bovenste strook: het belangrijkste in één oogopslag. -->
+    <!-- Let op: alleen zichtbaar als er iets is waar je naar moet kijken. -->
+    <div id="ovAttention" class="ov-attention" role="status" hidden></div>
+
+    <article class="card ov-strip">
+      <p id="playerEmpty" class="muted">Nog geen speler. Log in het spel in.</p>
+      <div id="playerBox" class="ov-strip-grid" hidden>
+        <div class="ov-who">
+          <p class="player-name"><span id="pName"></span> <span class="muted">level <span id="pLevel"></span></span></p>
+          <div class="bar-label"><span>HP</span><span id="pHpText"></span></div>
+          <div class="bar"><div id="pHpBar" class="bar-fill bar-hp"></div></div>
+          <div class="bar-label"><span>Mana</span><span id="pManaText"></span></div>
+          <div class="bar"><div id="pManaBar" class="bar-fill bar-mana"></div></div>
+        </div>
+        <dl class="ov-kpis">
+          <div class="ov-kpi"><dt>Bezig met</dt><dd id="pMode"></dd></div>
+          <div class="ov-kpi"><dt>Doel</dt><dd id="pTarget"></dd></div>
+          <div class="ov-kpi"><dt>Kills per uur</dt><dd id="sKph">0</dd></div>
+          <div class="ov-kpi"><dt>XP per uur</dt><dd id="fXph">0</dd></div>
+          <div class="ov-kpi"><dt>GP per uur</dt><dd id="fGph">0</dd></div>
+          <div class="ov-kpi"><dt>Life rings (hunt nog)</dt><dd id="ovRings">-</dd></div>
+        </dl>
+      </div>
+      <p class="ov-route small muted"><span id="sRoute"></span> <span class="ov-sep">·</span> Positie <span id="pPos"></span> <span class="ov-sep">·</span> Looptijd <span id="sRuntime">0:00:00</span></p>
+    </article>
+
+    <section class="grid grid-2">
+      <article class="card">
+        <h2>In de buurt</h2>
+        <h3 class="ov-sub">Spelers</h3>
+        <ul id="nearPlayers" class="near-list near-players"></ul>
+        <h3 class="ov-sub">Monsters</h3>
+        <ul id="nearMonsters" class="near-list"></ul>
+      </article>
+      <article class="card">
+        <h2>Laatste gebeurtenissen</h2>
+        <ul id="recentEvents" class="recent-events"></ul>
+      </article>
+    </section>
+
+    <section class="grid grid-2">
+      <article class="card">
+        <div class="card-head">
+          <h2>Route</h2>
+          <span id="routeMapInfo" class="muted small"></span>
+        </div>
+        <div id="routeMap" class="route-map" aria-label="Kaart van de route met je positie"></div>
+      </article>
+      <article class="card">
+        <h2>Opbrengst</h2>
+        <table class="ov-table">
+          <thead><tr><th></th><th>Per uur</th><th>Totaal</th></tr></thead>
+          <tbody>
+            <tr><th>Kills</th><td id="fKph">0</td><td id="fKills">0</td></tr>
+            <tr><th>XP</th><td id="fXph2">0</td><td id="fXp">0</td></tr>
+            <tr><th>GP</th><td id="fGph2">0</td><td id="fGold">0</td></tr>
+            <tr><th>UH's</th><td id="fUhph">0</td><td id="fUh">0</td></tr>
+            <tr><th>Mana fluids</th><td id="fMfph">0</td><td id="fMf">0</td></tr>
+          </tbody>
+        </table>
+        <p class="muted small" id="fSince"></p>
+
+        <details class="ov-more">
+          <summary>Voorraad en geld bij je</summary>
+        <dl class="ov-mini">
+          <div><dt>Geld</dt><dd id="wValue">0 GP</dd></div>
+          <div><dt>Crystal</dt><dd id="wCrystal">0</dd></div>
+          <div><dt>Platinum</dt><dd id="wPlatinum">0</dd></div>
+          <div><dt>Gold</dt><dd id="wGold">0</dd></div>
+          <div><dt>Life rings</dt><dd id="pLifeRings"></dd></div>
+          <div><dt>UH's</dt><dd id="pUh"></dd></div>
+          <div><dt>Mana fluids</dt><dd id="pMf"></dd></div>
+          <div><dt>Cap</dt><dd id="pCap"></dd></div>
+        </dl>
+        <p class="muted small">Kills deze sessie: <span id="sKills">0</span>. Geld telt alleen wat je bij je hebt, niet wat in het depot ligt.</p>
+        </details>
+
+        <div class="card-foot">
+          <span id="farmMsg" class="save-msg"></span>
+          <button id="farmReset" class="btn" type="button">Opnieuw tellen</button>
+        </div>
+      </article>
+    </section>
+
+    <section class="grid grid-1">
+      <article class="card">
+        <div class="card-head">
+          <h2>Afgelopen uur</h2>
+          <span id="hourChartInfo" class="muted small"></span>
+        </div>
+        <div id="hourChart" class="hour-chart"></div>
+      </article>
+    </section>
+  </section>
+
+  <section id="tab-route" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-route" hidden>
+    <h2 class="sr-only">Route</h2>
+    <section class="grid grid-1">
+      <article class="card">
+        <div class="card-head">
+          <h2>Route</h2>
+          <span id="routeMsg" class="save-msg"></span>
+        </div>
+
+        <div class="row-wrap">
+          <label class="field">
+            <span>Route</span>
+            <select id="routeSelect"></select>
+          </label>
+          <button id="routeUse" class="btn">Gebruik deze route</button>
+          <button id="routeDelete" class="btn btn-danger-soft">Route verwijderen</button>
+        </div>
+
+        <div class="row-wrap">
+          <label class="field">
+            <span>Nieuwe route (alleen a-z, 0-9, - en _)</span>
+            <input id="routeNewName" type="text" placeholder="bijv. rotworms-2" autocomplete="off">
+          </label>
+          <button id="routeNew" class="btn">Nieuwe route maken</button>
+        </div>
+
+        <p id="routeActive" class="muted small"></p>
+
+        <div class="row-wrap">
+          <label class="field">
+            <span>Soort waypoint</span>
+            <select id="wpType">
+              <option value="walk">walk (lopen)</option>
+              <option value="stand">stand (lopen en even wachten)</option>
+              <option value="rope">rope (touw bij een gat)</option>
+              <option value="use">use (ladder of luik)</option>
+              <option value="floor">floor (trap of gat, op stappen)</option>
+            </select>
+          </label>
+          <button id="wpHere" class="btn btn-ok">Waypoint hier</button>
+        </div>
+        <p id="wpHereInfo" class="muted small"></p>
+
+        <details class="fold">
+          <summary>Route opnemen <span class="muted">zelf lopen, de bot zet de waypoints</span></summary>
+          <div class="fold-body">
+        <div class="rec-box">
+          <p class="small"><strong>Route opnemen.</strong> Druk op Start opname en loop zelf je route. De bot zet onderweg waypoints neer, ook bij elke trap of elk gat. De opname komt altijd in een nieuwe route. Stop de bot eerst. Ging je omhoog met een ladder of touw? Zet dat waypoint daarna op use (ladder) of rope (touw).</p>
+          <div class="row-wrap">
+            <label class="field">
+              <span>Naam nieuwe route</span>
+              <input id="recName" type="text" placeholder="bijv. rotworms-2" autocomplete="off">
+            </label>
+            <label class="field">
+              <span>Elke zoveel tegels een waypoint</span>
+              <input id="recStep" type="number" min="1" max="20" value="4">
+            </label>
+            <button id="recStart" class="btn btn-ok">Start opname</button>
+            <button id="recStop" class="btn" disabled>Stop opname</button>
+            <span id="recState" class="badge badge-muted">Geen opname</span>
+          </div>
+          <p id="recMsg" class="small"></p>
+        </div>
+
+          </div>
+        </details>
+
+        <div class="wp-head">
+          <span>#</span><span>Soort</span><span>x</span><span>y</span><span>z</span><span>Label</span><span></span>
+        </div>
+        <div id="wpList" class="wp-list"></div>
+        <p id="wpEmpty" class="muted" hidden>Deze route heeft nog geen waypoints.</p>
+
+        <div class="card-foot">
+          <button id="routeSave" class="btn btn-primary">Opslaan</button>
+        </div>
+      </article>
+    </section>
+    <details class="fold">
+      <summary>Drukte en omdraaien <span class="muted">route omdraaien als het druk is</span></summary>
+      <div class="fold-body">
+      <article class="card">
+        <div class="card-head">
+          <h2 class="sr-only">Drukte en omdraaien</h2>
+          <span id="crowdMsg" class="save-msg"></span>
+        </div>
+        <p class="muted small">De bot meet hoe vaak er een andere speler in beeld is. Is dat duidelijk vaker dan normaal, dan draait hij de route om. Wat normaal is, leert hij zelf. Hiervoor is ook een route met -omgekeerd in de naam nodig.</p>
+        <dl class="facts facts-big">
+          <dt>Speler in beeld (nu)</dt><dd id="crowdPct">-</dd>
+          <dt>Normaal</dt><dd id="crowdBase">-</dd>
+        </dl>
+        <dl class="facts">
+          <dt>Stand</dt><dd id="crowdPhase">-</dd>
+          <dt>Laatst omgedraaid</dt><dd id="crowdLast">-</dd>
+        </dl>
+        <div class="settings">
+          <label class="check"><input id="crowdEnabled" type="checkbox"> Automatisch omdraaien bij drukte</label>
+          <div class="row-wrap">
+            <label class="field field-small">
+              <span>Meten over (minuten)</span>
+              <input id="crowdWindow" type="number" min="2" max="60" step="1">
+            </label>
+            <label class="field field-small">
+              <span>Omdraaien bij keer normaal</span>
+              <input id="crowdFactor" type="number" min="1.1" max="5" step="0.1">
+            </label>
+            <label class="field field-small">
+              <span>En minstens procentpunt erboven</span>
+              <input id="crowdDiff" type="number" min="0" max="100" step="1">
+            </label>
+            <label class="field field-small">
+              <span>Wachten na omdraaien (minuten)</span>
+              <input id="crowdCooldown" type="number" min="0" max="120" step="1">
+            </label>
+          </div>
+        </div>
+        <div class="card-foot">
+          <button id="crowdSave" class="btn btn-primary" type="button">Opslaan</button>
+        </div>
+      </article>
+      </div>
+    </details>
+  </section>
+
+  <section id="tab-gevecht" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-gevecht" hidden>
+    <h2 class="sr-only">Gevecht</h2>
+    <section class="grid grid-2">
+      <article class="card">
+        <div class="card-head">
+          <h2>Targeting</h2>
+          <span id="targetingMsg" class="save-msg"></span>
+        </div>
+        <p class="muted small">De bot valt alleen monsters uit deze lijst aan. Prioriteit 1 gaat voor, daarna 2, enzovoort.</p>
+
+        <div id="monsterList" class="rule-list"></div>
+        <p id="monsterEmpty" class="muted" hidden>Nog geen monsters in de lijst.</p>
+
+        <div class="row-wrap">
+          <label class="field">
+            <span>Monster toevoegen</span>
+            <input id="monsterNewName" type="text" placeholder="bijv. Rotworm" autocomplete="off">
+          </label>
+          <button id="monsterAdd" class="btn">Toevoegen</button>
+        </div>
+        <div class="row-wrap">
+          <button id="monsterNear" class="btn">Voeg monsters in de buurt toe</button>
+        </div>
+
+        <div class="settings">
+          <label class="check"><input id="tAttackAll" type="checkbox"> Alles aanvallen (ook monsters die niet in de lijst staan)</label>
+          <label class="check"><input id="tSwitch" type="checkbox"> Wissel naar een monster dat direct naast je staat</label>
+          <label class="field field-small">
+            <span>Maximale afstand (tegels)</span>
+            <input id="tMaxDist" type="number" min="1" max="15" step="1">
+          </label>
+          <label class="field field-small">
+            <span>Minimaal lopen naar een monster (seconden)</span>
+            <input id="tApproachMin" type="number" min="0" max="10" step="0.5">
+          </label>
+          <label class="field field-small">
+            <span>Afstand houden tot monsters (tegels, 0 = uit)</span>
+            <input id="tKeep" type="number" min="0" max="5" step="1">
+          </label>
+        </div>
+
+        <div class="card-foot">
+          <button id="targetingSave" class="btn btn-primary">Opslaan</button>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <h2>Healing</h2>
+          <span id="healingMsg" class="save-msg"></span>
+        </div>
+        <p class="muted small">De bovenste regel die past gaat voor. HP-regels gaan altijd voor. De bot drukt dan op de hotkey.</p>
+
+        <div class="heal-head">
+          <span>Soort</span><span>Drempel</span><span>Hotkey</span><span>Wachttijd (ms)</span><span></span>
+        </div>
+        <div id="healList" class="rule-list"></div>
+        <p id="healEmpty" class="muted" hidden>Nog geen regels.</p>
+
+        <div class="row-wrap">
+          <button id="healAdd" class="btn">Regel toevoegen</button>
+        </div>
+        <div class="settings">
+          <label class="check"><input id="hSkipPz" type="checkbox"> Niet healen in een protection zone (veilige zone)</label>
+        </div>
+
+        <div class="card-foot">
+          <button id="healingSave" class="btn btn-primary">Opslaan</button>
+        </div>
+      </article>
+    </section>
+  </section>
+
+  <section id="tab-veiligheid" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-veiligheid" hidden>
+    <h2 class="sr-only">Veiligheid</h2>
+    <section class="grid grid-1 grid-narrow">
+      <article class="card">
+        <div class="card-head">
+          <h2>Veiligheid en meldingen</h2>
+          <span id="safetyMsg" class="save-msg"></span>
+        </div>
+
+        <fieldset class="set-group">
+          <legend>Bij een speler</legend>
+          <div class="settings">
+            <label class="field">
+              <span>Als er een speler in de buurt komt</span>
+              <select id="sOnPlayer">
+                <option value="alert">Melden en doorgaan</option>
+                <option value="pause">Pauzeren en melden</option>
+                <option value="ignore">Negeren</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Spelers die je wilt negeren (één naam per regel)</span>
+              <textarea id="sIgnore" rows="3"></textarea>
+            </label>
+          </div>
+        </fieldset>
+        <fieldset class="set-group">
+          <legend>Meldingen</legend>
+          <div class="settings">
+            <label class="field field-small">
+              <span>Melding als HP lager is dan (%)</span>
+              <input id="sLowHp" type="number" min="0" max="100" step="1">
+            </label>
+            <label class="field">
+              <span>ntfy-topic (voor meldingen op je telefoon via de app ntfy)</span>
+              <input id="sNtfy" type="text" placeholder="leeg laten als je dit niet gebruikt" autocomplete="off">
+            </label>
+            <label class="check"><input id="sDesktop" type="checkbox"> Melding op de computer (Mac)</label>
+          </div>
+        </fieldset>
+        <fieldset class="set-group">
+          <legend>Chat en inloggen</legend>
+          <div class="settings">
+            <label class="check"><input id="sChatPause" type="checkbox"> Pauzeren bij een privébericht (uit: de bot negeert chat en huntt door)</label>
+            <label class="check"><input id="sAiReplySafety" type="checkbox"> AI auto-reply op GM/CM/Tutor-berichten (Claude)</label>
+            <label class="check"><input id="sAutoLogin" type="checkbox"> Automatisch inloggen als het spel is uitgelogd (niet als de bot op Stop staat)</label>
+          </div>
+        </fieldset>
+
+        <div class="card-foot">
+          <button id="safetySave" class="btn btn-primary">Opslaan</button>
+        </div>
+      </article>
+    </section>
+  </section>
+
+  <section id="tab-chat" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-chat" hidden>
+    <h2 class="sr-only">Chat</h2>
+    <section class="grid grid-1">
+      <article class="card">
+        <div class="card-head">
+          <h2>Berichten in het spel</h2>
+          <span id="chatMsg" class="save-msg"></span>
+        </div>
+        <p class="muted small">Privéberichten van spelers negeert de bot, maar je ziet ze hier wel. Bij een GM, CM, God of Tutor opent rechtsonder een chatvenster. Daar kun je zelf antwoorden, of de AI laten antwoorden.</p>
+        <div class="settings" style="margin-bottom: 0.75rem;">
+          <label class="check">
+            <input id="sAiReply" type="checkbox">
+            AI auto-reply
+            <span id="aiReplyState" class="muted small"> (uit)</span>
+          </label>
+          <p class="muted small" style="margin: 0.25rem 0 0 1.5rem;">Staat dit aan, dan antwoordt Claude na ~2 seconden automatisch op berichten van GM/CM/Tutor. Standaard uit.</p>
+        </div>
+        <ul id="chatList" class="chat-list"></ul>
+        <p id="chatEmpty" class="muted">Nog geen berichten.</p>
+        <div class="row-wrap">
+          <label class="field">
+            <span>Aan</span>
+            <input id="chatTo" type="text" placeholder="naam van de speler" maxlength="40" autocomplete="off">
+          </label>
+          <label class="field chat-text">
+            <span>Bericht (max 120 tekens)</span>
+            <input id="chatText" type="text" maxlength="120" autocomplete="off">
+          </label>
+          <button id="chatSend" class="btn btn-primary" type="button">Versturen</button>
+        </div>
+      </article>
+    </section>
+  </section>
+
+  <section id="tab-sets" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-sets" hidden>
+    <h2 class="sr-only">Sets</h2>
+    <section class="grid grid-1">
+      <article class="card">
+        <div class="card-head">
+          <h2>Sets</h2>
+          <span id="setMsg" class="save-msg"></span>
+        </div>
+        <p class="muted small">Een set bewaart onder één naam: je actieve jachtroute, de refill (uitrusting, spullen en de routes naar het depot en terug), de monsterlijst en je healing. Met Laden zet je alles in één keer terug.</p>
+        <div id="setList" class="rule-list"></div>
+        <p id="setEmpty" class="muted" hidden>Nog geen sets.</p>
+        <div class="row-wrap">
+          <label class="field">
+            <span>Huidige instellingen opslaan als set</span>
+            <input id="setNewName" type="text" placeholder="bijv. Liberty Bay Unlimited" maxlength="60" autocomplete="off">
+          </label>
+          <button id="setSave" class="btn btn-primary" type="button">Set opslaan</button>
+        </div>
+      </article>
+    </section>
+  </section>
+
+  <section id="tab-log" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-log" hidden>
+    <h2 class="sr-only">Log</h2>
+    <section class="grid grid-1">
+      <article class="card">
+        <div class="card-head">
+          <h2>Log en meldingen</h2>
+          <button id="logClear" class="btn btn-small">Leegmaken</button>
+        </div>
+        <div class="log-filter" role="group" aria-label="Wat wil je zien">
+          <button class="btn btn-small" type="button" data-logfilter="all" aria-pressed="true">Alles</button>
+          <button class="btn btn-small" type="button" data-logfilter="alert" aria-pressed="false">Alleen meldingen</button>
+          <button class="btn btn-small" type="button" data-logfilter="kill" aria-pressed="false">Kills</button>
+        </div>
+        <ul id="logList" class="log-list"></ul>
+        <p id="logEmpty" class="muted">Nog niets te melden.</p>
+      </article>
+    </section>
+  </section>
+
+  </main>
+
+  <aside id="gmChat" class="gm-chat" hidden aria-live="polite">
+    <div class="gm-chat-head">
+      <strong id="gmChatTitle">Let's Chat!</strong>
+      <button id="gmChatClose" class="btn btn-small" type="button">Sluiten</button>
+    </div>
+    <ul id="gmChatList" class="gm-chat-list"></ul>
+    <div class="gm-chat-form">
+      <input id="gmChatText" type="text" maxlength="120" autocomplete="off" placeholder="Typ je antwoord">
+      <button id="gmChatSend" class="btn btn-primary" type="button">Versturen</button>
+    </div>
+    <p id="gmChatNote" class="gm-chat-note" hidden></p>
+  </aside>
+
+  <script src="app.js"></script>
+  <script src="tabs.js"></script>
+  <script src="routemap.js"></script>
+  <script src="hourchart.js"></script>
+  <script src="events.js"></script>
+  <script src="theme.js"></script>
+  <script src="restart.js"></script>
+  <script src="vnc.js"></script>
+</body>
+</html>

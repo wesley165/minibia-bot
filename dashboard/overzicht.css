@@ -1,0 +1,134 @@
+/* Overzicht, gevecht en route: compacte, rustige opbouw. Alleen variabelen uit style.css. */
+
+/* ---- Overzicht: strook bovenaan ---- */
+.ov-strip { margin-bottom: var(--space-4); }
+.ov-strip-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+.ov-strip-grid[hidden] { display: none; }
+.ov-who .player-name { margin-bottom: var(--space-2); }
+
+.ov-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3) var(--space-4);
+  margin: 0;
+}
+.ov-kpi { min-width: 0; }
+.ov-kpi dt { color: var(--muted); font-size: var(--fs-small); }
+.ov-kpi dd { margin: 0; font-size: var(--fs-big); font-weight: 600; overflow-wrap: anywhere; }
+/* Bezig met en Doel zijn tekst, geen getal: iets kleiner. */
+.ov-kpi:nth-child(-n+2) dd { font-size: var(--fs-base); }
+
+.ov-route { margin: var(--space-3) 0 0; padding-top: var(--space-2); border-top: 1px solid var(--line); }
+.ov-sep { margin: 0 var(--space-1); }
+
+.ov-sub {
+  font-size: var(--fs-small);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin: var(--space-3) 0 var(--space-1);
+}
+.card > .ov-sub:first-of-type { margin-top: 0; }
+
+/* Spelers in de buurt vallen op. */
+.near-players li:not(.is-empty) { color: var(--danger); font-weight: 600; }
+
+/* ---- Overzicht: opbrengst-tabel ---- */
+.ov-table { width: 100%; border-collapse: collapse; font-size: var(--fs-base); }
+.ov-table th, .ov-table td { text-align: right; padding: var(--space-1) var(--space-2); border-bottom: 1px solid var(--line); }
+.ov-table thead th { font-size: var(--fs-small); color: var(--muted); font-weight: 600; }
+.ov-table tbody th { text-align: left; font-weight: 400; color: var(--muted); }
+.ov-table td { font-variant-numeric: tabular-nums; font-weight: 600; }
+
+.ov-mini {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-2) var(--space-3);
+  margin: 0 0 var(--space-2);
+}
+.ov-mini dt { color: var(--muted); font-size: var(--fs-small); }
+.ov-mini dd { margin: 0; font-weight: 600; }
+
+.card-foot .save-msg { margin-right: auto; align-self: center; }
+
+/* ---- Gevecht: monsters per prioriteit ---- */
+.prio-group { margin-bottom: var(--space-3); }
+.prio-title { font-size: var(--fs-small); color: var(--muted); font-weight: 600; margin: 0 0 var(--space-1); }
+.prio-chips { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-1) 2px var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--input-bg);
+  font-size: var(--fs-small);
+}
+.chip > span { white-space: nowrap; }
+.chip select { font: inherit; font-size: var(--fs-small); width: auto; min-width: 0; padding: 0 2px; border: 0; background: transparent; color: var(--muted); }
+.chip-x {
+  border: 0;
+  background: transparent;
+  color: var(--danger);
+  cursor: pointer;
+  font-size: var(--fs-base);
+  line-height: 1;
+  padding: 0 var(--space-1);
+}
+.chip-x:hover { color: var(--danger-dark); }
+
+/* ---- Gevecht: healing in gewone woorden ---- */
+.heal-row .heal-names { grid-column: 1 / span 4; }
+.heal-summary {
+  font-size: var(--fs-small);
+  color: var(--muted);
+  margin: calc(-1 * var(--space-1)) 0 var(--space-2);
+  padding-left: var(--space-1);
+}
+
+/* ---- Route: inklapbare blokken ---- */
+.fold { border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); margin-bottom: var(--space-4); box-shadow: var(--shadow); }
+.fold > summary {
+  cursor: pointer;
+  padding: var(--space-3) var(--space-4);
+  font-weight: 600;
+  list-style-position: inside;
+}
+.fold > summary .muted { font-weight: 400; font-size: var(--fs-small); margin-left: var(--space-2); }
+.fold-body { padding: 0 var(--space-4) var(--space-4); }
+.fold-body > .card { border: 0; box-shadow: none; padding: 0; }
+
+@media (max-width: 759px) {
+  .ov-strip-grid { grid-template-columns: repeat(1, minmax(0, 1fr)); gap: var(--space-3); }
+  .ov-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ov-mini { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* ---- Overzicht: let-op-blok (alleen als er iets is) ---- */
+.ov-attention {
+  margin-bottom: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius);
+  border: 1px solid var(--line-strong);
+  background: var(--warn-soft);
+  color: var(--text);
+  font-weight: 600;
+}
+.ov-attention.is-hot { background: var(--danger-soft); border-color: var(--danger); color: var(--danger-dark); }
+.ov-attention p { margin: 0; }
+.ov-attention p + p { margin-top: var(--space-1); }
+
+/* Minder belangrijk: ingeklapt. */
+.ov-more { margin-top: var(--space-3); }
+.ov-more > summary { cursor: pointer; color: var(--muted); font-size: var(--fs-small); font-weight: 600; }
+.ov-more[open] > summary { margin-bottom: var(--space-2); }
+
+/* Life rings: oranje onder 2 uur, rood onder 1 uur. */
+.ov-kpi dd.is-warn { color: var(--warn); }
+.ov-kpi dd.is-low { color: var(--danger); }

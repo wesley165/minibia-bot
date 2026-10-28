@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Minibia-bot inloggen</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="login.css">
+</head>
+<body class="login-page">
+  <main class="login-box">
+    <h1 class="login-title">Minibia-bot</h1>
+
+    <form id="setupForm" class="login-form" hidden>
+      <h2>Wachtwoord aanmaken</h2>
+      <p class="muted small">Dit doe je één keer. Kies een wachtwoord van minimaal 6 tekens. Daarna log je hiermee in.</p>
+      <label class="field">
+        <span>Aanmaakcode</span>
+        <input id="setupCode" type="password" autocomplete="off" required>
+      </label>
+      <p class="muted small">De aanmaakcode heb je van Claude gekregen. Hij werkt maar één keer.</p>
+      <label class="field">
+        <span>Nieuw wachtwoord</span>
+        <input id="setupPw" type="password" autocomplete="new-password" minlength="6" required>
+      </label>
+      <label class="field">
+        <span>Herhaal je wachtwoord</span>
+        <input id="setupPw2" type="password" autocomplete="new-password" minlength="6" required>
+      </label>
+      <button class="btn btn-ok login-btn" type="submit">Wachtwoord aanmaken</button>
+    </form>
+
+    <form id="loginForm" class="login-form" hidden>
+      <h2>Inloggen</h2>
+      <label class="field">
+        <span>Wachtwoord</span>
+        <input id="loginPw" type="password" autocomplete="current-password" required>
+      </label>
+      <button class="btn btn-ok login-btn" type="submit">Inloggen</button>
+    </form>
+
+    <p id="loginMsg" class="login-msg" role="alert"></p>
+  </main>
+  <script src="login.js"></script>
+</body>
+</html>

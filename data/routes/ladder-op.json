@@ -1,0 +1,24 @@
+{
+  "name": "ladder-op",
+  "waypoints": [
+    {
+      "type": "walk",
+      "x": 32892,
+      "y": 31766,
+      "z": 6
+    },
+    {
+      "type": "use",
+      "x": 32893,
+      "y": 31767,
+      "z": 6,
+      "label": "ladder omhoog"
+    },
+    {
+      "type": "walk",
+      "x": 32893,
+      "y": 31766,
+      "z": 5
+    }
+  ]
+}

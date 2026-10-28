@@ -1,0 +1,34 @@
+# Alles negeren, alleen de code en routes toelaten
+/*
+!/.gitignore
+!/page/
+!/src/
+!/dashboard/
+!/scripts/
+!/extension/
+!/data/
+!/package.json
+!/README.md
+!/SPEC.md
+!/VPS.md
+!/CLAUDE.md
+
+/data/*
+!/data/routes/
+!/data/sets/
+!/data/config.example.json
+!/data/verken-*.json
+/data/*.bak*
+/data/*voor-check*
+
+# Nooit: sleutels, tokens, wachtwoorden, gebouwde bestanden
+.env*
+*token*
+auth.json
+sessions.json
+config.json
+extension/bot.js
+node_modules/
+._*
+.DS_Store
+*.png

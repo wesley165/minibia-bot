@@ -1,0 +1,18 @@
+{
+  "name": "verder-tmp",
+  "waypoints": [
+    {
+      "type": "walk",
+      "x": 32959,
+      "y": 31750,
+      "z": 7
+    },
+    {
+      "type": "use",
+      "x": 32959,
+      "y": 31751,
+      "z": 7,
+      "label": "ladder omhoog"
+    }
+  ]
+}

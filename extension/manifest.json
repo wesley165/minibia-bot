@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "WJ Minibia-bot",
+  "version": "1.0.0",
+  "description": "Laadt de Minibia-bot in het Minibia-tabblad en koppelt hem aan het dashboard op je eigen computer.",
+  "content_scripts": [
+    {
+      "matches": [
+        "https://minibia.com/play*"
+      ],
+      "js": [
+        "bot.js"
+      ],
+      "world": "MAIN",
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ]
+}

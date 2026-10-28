@@ -1,0 +1,58 @@
+{
+  "name": "john-cyclopolis-gebouw",
+  "waypoints": [
+    {
+      "type": "walk",
+      "x": 33266,
+      "y": 31659,
+      "z": 8,
+      "label": "start"
+    },
+    {
+      "type": "walk",
+      "x": 33271,
+      "y": 31659,
+      "z": 8,
+      "label": "spawn 1"
+    },
+    {
+      "type": "walk",
+      "x": 33277,
+      "y": 31659,
+      "z": 8
+    },
+    {
+      "type": "walk",
+      "x": 33277,
+      "y": 31664,
+      "z": 8,
+      "label": "spawn 2"
+    },
+    {
+      "type": "walk",
+      "x": 33277,
+      "y": 31670,
+      "z": 8
+    },
+    {
+      "type": "walk",
+      "x": 33271,
+      "y": 31670,
+      "z": 8,
+      "label": "spawn 3"
+    },
+    {
+      "type": "walk",
+      "x": 33266,
+      "y": 31670,
+      "z": 8
+    },
+    {
+      "type": "walk",
+      "x": 33266,
+      "y": 31664,
+      "z": 8,
+      "label": "spawn 4"
+    }
+  ]
+}

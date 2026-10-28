@@ -1,0 +1,72 @@
+/* Donker thema. Kleuren komen alleen uit de variabelen hieronder. */
+/* In het donker is --card donker, dus tekst op gekleurde knoppen gebruikt --bg (ook donker, goed leesbaar op lichte knoppen). */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0f1620;
+  --card: #18212d;
+  --text: #e6ebf2;
+  --muted: #9aa8b8;
+  --line: #2a3646;
+  --line-strong: #3a4859;
+  --input-bg: #121a25;
+
+  --primary: #6aa0f2;
+  --primary-dark: #8ab8f6;
+  --primary-soft: #1f2f49;
+  --ok: #4cc38a;
+  --ok-dark: #6fd5a2;
+  --ok-soft: #17302a;
+  --warn: #e0a84a;
+  --warn-soft: #35291a;
+  --danger: #f07575;
+  --danger-dark: #f59a9a;
+  --danger-soft: #3a2024;
+
+  --hp: #e85d5d;
+  --mana: #5b8def;
+  --bar-bg: #263243;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0f1620;
+    --card: #18212d;
+    --text: #e6ebf2;
+    --muted: #9aa8b8;
+    --line: #2a3646;
+    --line-strong: #3a4859;
+    --input-bg: #121a25;
+
+    --primary: #6aa0f2;
+    --primary-dark: #8ab8f6;
+    --primary-soft: #1f2f49;
+    --ok: #4cc38a;
+    --ok-dark: #6fd5a2;
+    --ok-soft: #17302a;
+    --warn: #e0a84a;
+    --warn-soft: #35291a;
+    --danger: #f07575;
+    --danger-dark: #f59a9a;
+    --danger-soft: #3a2024;
+
+    --hp: #e85d5d;
+    --mana: #5b8def;
+    --bar-bg: #263243;
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  }
+}
+
+/* Leesbare tekst op gekleurde knoppen en de captcha-balk */
+:root[data-theme="dark"] .btn-primary,
+:root[data-theme="dark"] .btn-ok,
+:root[data-theme="dark"] .btn-danger,
+:root[data-theme="dark"] .captcha-bar { color: var(--bg); }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .btn-primary,
+  :root:not([data-theme="light"]) .btn-ok,
+  :root:not([data-theme="light"]) .btn-danger,
+  :root:not([data-theme="light"]) .captcha-bar { color: var(--bg); }
+}

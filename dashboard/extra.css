@@ -1,0 +1,25 @@
+/* Route-kaart, log-filter en de groepen bij Veiligheid. Alleen variabelen uit style.css. */
+
+.route-map { width: 100%; min-height: 200px; }
+.route-map svg { display: block; width: 100%; height: 320px; }
+.routemap-pulse { animation: rm-pulse 1.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes rm-pulse {
+  0%, 100% { opacity: 0.35; transform: scale(1); }
+  50% { opacity: 0.1; transform: scale(1.6); }
+}
+@media (prefers-reduced-motion: reduce) { .routemap-pulse { animation: none; } }
+
+.hour-chart { width: 100%; }
+
+/* Log: filterknoppen */
+.log-filter { display: flex; flex-wrap: wrap; gap: var(--space-1); margin: 0 0 var(--space-3); }
+.log-filter .btn[aria-pressed="true"] { background: var(--primary-soft); border-color: var(--primary); color: var(--primary-dark); }
+
+/* Veiligheid: instellingen in groepjes */
+.set-group { border: 1px solid var(--line); border-radius: var(--radius-small); padding: var(--space-3) var(--space-4); margin: 0 0 var(--space-3); }
+.set-group > legend { font-weight: 600; padding: 0 var(--space-1); }
+.set-group .settings { margin-top: 0; }
+
+@media (max-width: 759px) {
+  .route-map svg { height: 220px; }
+}

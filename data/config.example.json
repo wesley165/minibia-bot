@@ -1,0 +1,129 @@
+{
+  "routeName": "rotworms-2",
+  "targeting": {
+    "monsters": [
+      {
+        "name": "Rotworm",
+        "priority": 1
+      },
+      {
+        "name": "Carrion Worm",
+        "priority": 2
+      }
+    ],
+    "attackAll": false,
+    "maxDistance": 7,
+    "unreachableMs": 3000,
+    "unreachableCooldownMs": 15000,
+    "switchIfAdjacent": true
+  },
+  "healing": {
+    "skipInPz": true,
+    "rules": [
+      {
+        "type": "hp",
+        "belowPct": 60,
+        "hotkey": 1,
+        "cooldownMs": 1000
+      },
+      {
+        "type": "mana",
+        "belowPct": 30,
+        "hotkey": 2,
+        "cooldownMs": 1000
+      }
+    ]
+  },
+  "cavebot": {
+    "arriveDistance": 0,
+    "repathMs": 3000,
+    "maxRepaths": 2,
+    "loop": true
+  },
+  "safety": {
+    "onPlayer": "alert",
+    "playerIgnore": [],
+    "lowHpAlertPct": 30
+  },
+  "notify": {
+    "ntfyTopic": "",
+    "desktop": true
+  },
+  "autoMove": [
+    {
+      "name": "Crystal coin",
+      "itemId": 3043,
+      "slot": 9,
+      "enabled": true,
+      "toDepot": true
+    }
+  ],
+  "restock": {
+    "equip": [
+      {
+        "slot": "backpack",
+        "item": "backpack"
+      },
+      {
+        "slot": "helm",
+        "item": "chain helmet"
+      },
+      {
+        "slot": "armor",
+        "item": "brass armor"
+      },
+      {
+        "slot": "legs",
+        "item": "chain legs"
+      },
+      {
+        "slot": "wapen",
+        "item": "barbarian axe"
+      },
+      {
+        "slot": "schild",
+        "item": "viking shield"
+      },
+      {
+        "slot": "ketting",
+        "item": "scarf"
+      }
+    ],
+    "backpack": [
+      {
+        "item": "rope",
+        "count": 1
+      },
+      {
+        "item": "shovel",
+        "count": 1
+      }
+    ],
+    "enabled": true,
+    "routes": {
+      "toDepot": "tempel-depot",
+      "toHunt": "depot-hunt"
+    }
+  },
+  "autoLogin": {
+    "enabled": true,
+    "account": "wess",
+    "character": "Wess"
+  },
+  "chat": {
+    "pause": false,
+    "aiReply": {
+      "enabled": false,
+      "onlyStaff": true,
+      "delayMs": 2000,
+      "jitterMs": 800,
+      "cooldownMs": 5000,
+      "manualSuppressMs": 30000,
+      "historyLimit": 6,
+      "maxTokens": 150,
+      "model": "claude-opus-4-5",
+      "apiKey": "",
+      "systemPrompt": "Je bent een gewone Minibia-speler. Antwoord kort (max 1-2 zinnen, ~120 tekens), vriendelijk en natuurlijk. Geen markdown, geen bot-taal."
+    }
+  }
+}

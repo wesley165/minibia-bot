@@ -1,0 +1,64 @@
+/* Mobiel: Start, Pauze, Doorgaan en Stop als vaste balk onderaan (duim-vriendelijk). */
+@media (max-width: 759px) {
+  /* Vaste balk, 4 gelijke kolommen */
+  .topbar .topbar-right {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--space-2);
+    align-items: stretch;
+    padding: var(--space-2) var(--space-3) calc(var(--space-2) + env(safe-area-inset-bottom));
+    background: var(--card);
+    border-top: 1px solid var(--line);
+  }
+
+  /* Rij 1: de vier knoppen om te besturen */
+  .topbar-right #btnStart,
+  .topbar-right #btnPause,
+  .topbar-right #btnResume,
+  .topbar-right #btnStop {
+    grid-row: 1;
+    min-height: 44px;
+    min-width: 0;
+    padding-left: var(--space-1);
+    padding-right: var(--space-1);
+  }
+
+  /* Rij 2: kleine extra items, ook vier kolommen */
+  .topbar-right #btnRestart,
+  .topbar-right #btnTheme,
+  .topbar-right #btnLogout,
+  .topbar-right a.btn {
+    grid-row: 2;
+    min-width: 0;
+    font-size: var(--fs-small);
+    padding: var(--space-1) var(--space-1);
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Rij 3: verbindingsstatus, en rechts eventueel Live uit */
+  .topbar-right #btnVncOff {
+    grid-row: 3;
+    grid-column: 4;
+    min-width: 0;
+    font-size: var(--fs-small);
+    padding: var(--space-1);
+  }
+  .topbar-right #connBadge {
+    grid-row: 3;
+    grid-column: 1 / 4;
+    align-self: center;
+    text-align: center;
+    font-size: var(--fs-small);
+  }
+
+  /* Ruimte onderaan, zodat de inhoud niet achter de balk valt */
+  .page { padding-bottom: 150px; }
+}
