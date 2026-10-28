@@ -13,7 +13,7 @@ Een cavebot die zelf huntt:
 
 Refill, depot en restocken na death komen in v2. Looten doet het spel zelf (ingebouwde Automations: Loot Gold, Open Corpse enzovoort).
 
-**Harde regel:** de bot lost de anti-bot-controle (`captcha-modal`) nooit zelf op en probeert hem niet te omzeilen of te voorkomen. Hij pauzeert en meldt het. Geen stealth, geen aanpassingen aan `navigator.webdriver`, geen vervalste meetgegevens. AI-chat (auto-reply op GM/CM/Tutor-berichten) is apart aan/uit te zetten in het dashboard (`config.chat.aiReply.enabled`).
+**Regel:** bij de anti-bot-controle (`captcha-modal`) pauzeert de bot eerst en loopt hij naar een veilige plek (geen monsters binnen `clearDistance` tegels). Daarna probeert captchawatch de quiz **zelf op te lossen** (dashboard-optie "Resolve quizzes", `config.quiz.resolve`, standaard aan): rekensommen worden ter plaatse uitgerekend, veldrasters worden geteld, en meerkeuzevragen gaan via Claude (`/bridge/quiz`, model `claude-haiku-4-5`). Staat "Resolve quizzes" uit, dan doet de bot geen eigen pogingen en logt hij netjes uit. Een wachtwoordquiz kan de bot niet raden; die blijft voor de speler. Lukt oplossen niet of duurt het te lang (`config.quiz.giveUpMs`, default 90 s), dan logt de bot uit en pakt autologin het op. AI-chat (auto-reply op GM/CM/Tutor-berichten) is apart aan/uit te zetten in het dashboard (`config.chat.aiReply.enabled`). Geen stealth, geen aanpassingen aan `navigator.webdriver`, geen vervalste meetgegevens.
 
 ## Opzet
 
@@ -148,7 +148,7 @@ Alles geeft eenvoudige objecten terug, geen spelobjecten (behalve `ref`).
 
 - `check(ctx)` geeft `null` of `{ action: 'pause' | 'alert', reason, message }`.
 - Redenen en standaard:
-  - `captcha`: `captcha-modal` zichtbaar. Altijd `pause`. Bericht: "Anti-bot-controle staat open. Los hem zelf op."
+  - `captcha`: `captcha-modal` zichtbaar. Altijd `pause`. Bericht: "Quiz staat open. Ik probeer hem zelf op te lossen; lukt dat niet, dan log ik uit."
   - `death`: `player.isDead` of `death-modal` zichtbaar. `pause`.
   - `player`: een speler (type 0, niet in `playerIgnore`) binnen 8 tegels op dezelfde z. Volgens `onPlayer`: `alert`, `pause` of `ignore`. Maximaal één melding per speler per 2 minuten.
   - `lowHp`: hpPct onder `lowHpAlertPct`. `alert`, maximaal één per minuut.
