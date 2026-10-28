@@ -6,6 +6,19 @@ const fs = require('fs');
 const path = require('path');
 
 const STAFF_RE = /^(gm|cm|god|tutor)\b/i;
+// Bekende, werkende Anthropic-modellen. Een typefout in de config (bijv.
+// 'claude-opus-5-5') zou anders elke poging laten mislukken; onbekende namen
+// worden daarom teruggezet naar het standaardmodel.
+const KNOWN_MODELS = [
+  'claude-opus-4-5', 'claude-sonnet-4-5', 'claude-haiku-4-5',
+  'claude-3-7-sonnet', 'claude-3-5-sonnet', 'claude-3-5-haiku'
+];
+function pickModel(name) {
+  const n = String(name || '').trim().toLowerCase();
+  if (!n) return 'claude-opus-4-5';
+  if (KNOWN_MODELS.some((k) => n.startsWith(k))) return n;
+  return null; // onbekend: roepaanroeper beslist + logt
+}
 const DEFAULT_SYSTEM = [
   'Je bent een gewone Minibia-speler (Tibia-achtig online spel).',
   'Je krijgt een privébericht en formuleert één kort, natuurlijk antwoord.',
@@ -99,10 +112,61 @@ function createAiReply({ root, getConfig, command, log }) {
 
   async function callClaude(userText, systemPrompt) {
     const cfg = chatCfg();
-    const model = cfg.model || 'claude-opus-5-5';
+    const chosen = pickModel(cfg.model);
+    const model = chosen || 'claude-opus-4-5';
+    if (!chosen && cfg.model) {
+      log('[ai-reply] Onbekend model "' + cfg.model + '" in de config; ik gebruik ' + model + '.');
+    }
     const maxTokens = Number(cfg.maxTokens) > 0 ? Number(cfg.maxTokens) : 150;
     const key = apiKey();
 
+    let res;
+    try {
+      res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': key,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: model,
+          max_tokens: maxTokens,
+          system: systemPrompt || DEFAULT_SYSTEM,
+          messages: [{ role: 'user', content: userText }]
+        })
+      });
+    } catch (err) {
+      throw new Error('Netwerk naar Anthropic mislukt: ' + (err && err.message ? err.message : err));
+    }
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      // 400 met een onbekend model: één keer opnieuw proberen op het standaardmodel.
+      if (res.status === 400 && model !== 'claude-opus-4-5') {
+        log('[ai-reply] Model "' + model + '" geweigerd (' + body.slice(0, 120) + '); probeer claude-opus-4-5.');
+        return callClaudeWithModel('claude-opus-4-5', userText, systemPrompt, maxTokens, key);
+      }
+      throw new Error('Anthropic HTTP ' + res.status + ': ' + body.slice(0, 200));
+    }
+    const data = await res.json();
+    const parts = (data.content || []).filter((p) => p.type === 'text').map((p) => p.text);
+    let text = parts.join(' ').trim();
+    return cleanReply(text);
+  }
+
+  function cleanReply(text) {
+    // Opschonen: geen aanhalingstekens eromheen, geen markdown, kort houden.
+    text = String(text || '')
+      .replace(/^[\"'«»]+|[\"'«»]+$/g, '')
+      .replace(/[*_`#]+/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (text.length > 120) text = text.slice(0, 117).trim() + '…';
+    return text;
+  }
+
+  async function callClaudeWithModel(model, userText, systemPrompt, maxTokens, key) {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -117,18 +181,13 @@ function createAiReply({ root, getConfig, command, log }) {
         messages: [{ role: 'user', content: userText }]
       })
     });
-
     if (!res.ok) {
       const body = await res.text().catch(() => '');
       throw new Error('Anthropic HTTP ' + res.status + ': ' + body.slice(0, 200));
     }
     const data = await res.json();
     const parts = (data.content || []).filter((p) => p.type === 'text').map((p) => p.text);
-    let text = parts.join(' ').trim();
-    // Opschonen: geen aanhalingstekens eromheen, geen markdown, kort houden.
-    text = text.replace(/^["'«»]+|["'«»]+$/g, '').replace(/\s+/g, ' ').trim();
-    if (text.length > 120) text = text.slice(0, 117).trim() + '…';
-    return text;
+    return cleanReply(parts.join(' ').trim());
   }
 
   function cancelPending(from) {
