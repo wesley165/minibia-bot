@@ -1,6 +1,9 @@
 #!/bin/bash
 # Knop "Bijwerken" in het dashboard: nieuwste versie van GitHub installeren.
 # Wordt als root gestart door minibia-bijwerken.path als data/bijwerken-verzoek verschijnt.
+# Root draait een kopie: /root/bijwerken-knop.sh en /root/van-github.sh (niet de bestanden in de
+# map van minibia, die kan minibia zelf veranderen). Na een wijziging aan deze scripts:
+#   cp /home/minibia/bot/scripts/{bijwerken-knop,van-github}.sh /root/
 # - Wacht tot er geen monsters in de buurt zijn (max 60 s). Anders stopt hij, zodat John
 #   niet midden in een gevecht herladen wordt.
 # - Draait scripts/van-github.sh (ophalen, bouwen, extensie herladen).
@@ -15,9 +18,10 @@ main() {
   T=$(cat $BOT/data/admin-token)
   als() { su minibia -s /bin/bash -c "cd $BOT && $1"; }
   api() { curl -s -m 10 -H "X-WJ-Admin: $T" "$@"; }
+  # Status schrijven als minibia (geen root in de map van minibia).
   zet() {
-    python3 -c "import json,sys,time;json.dump({'stap':sys.argv[1],'tekst':sys.argv[2],'tijd':int(time.time()*1000)},open(sys.argv[3],'w'))" "$1" "$2" "$STATE"
-    chown minibia:minibia $STATE; chmod 644 $STATE
+    python3 -c "import json,sys,time;print(json.dumps({'stap':sys.argv[1],'tekst':sys.argv[2],'tijd':int(time.time()*1000)}))" "$1" "$2" \
+      | su minibia -s /bin/bash -c "cat > $STATE"
     echo "$(date '+%F %T') $1: $2"
   }
   rm -f $REQ
@@ -33,7 +37,7 @@ main() {
   zet bezig "Nieuwe versie gevonden. Wachten tot er geen monsters in de buurt zijn (max 60 s)."
   rustig=nee
   for i in $(seq 1 30); do
-    N=$(api http://127.0.0.1:3100/api/status | python3 -c "import json,sys;print(len(json.load(sys.stdin).get('monstersNear') or []))" 2>/dev/null)
+    N=$(api http://127.0.0.1:3100/api/status | python3 -c "import json,sys;s=json.load(sys.stdin);print(len(s.get('monstersNear') or []) if 'state' in s and s.get('version') else 'x')" 2>/dev/null)
     if [ "$N" = "0" ]; then rustig=ja; break; fi
     sleep 2
   done
@@ -42,12 +46,16 @@ main() {
     return 1
   fi
   zet bezig "Nieuwe versie installeren en de extensie herladen."
-  if ! uit=$(bash $BOT/scripts/van-github.sh 2>&1); then
+  if ! uit=$(bash /root/van-github.sh 2>&1); then
     echo "$uit"
+    # Halve update (bijv. bouwen mislukt na het ophalen)? Terug naar de oude versie,
+    # zodat een volgende klik het opnieuw probeert.
+    [ "$(als 'git rev-parse HEAD')" != "$oud" ] && als "git reset -q --keep $oud"
     zet mislukt "Bijwerken lukte niet: $(echo "$uit" | tail -n 1 | cut -c1-200)"
     return 1
   fi
   echo "$uit"
+  nieuw=$(als "git rev-parse HEAD")
   if als "git diff --name-only $oud $nieuw" | grep -q '^src/'; then
     zet bezig "Server-code is veranderd. De server wordt herstart."
     systemctl restart minibia-bot
