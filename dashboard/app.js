@@ -1316,8 +1316,10 @@
     var on = !(S.config && S.config.quiz && S.config.quiz.resolve === false);
     var a = $('sQuizResolve');
     var b = $('sQuizResolveChat');
+    var c = $('sQuizResolve2');
     if (a) a.checked = on;
     if (b) b.checked = on;
+    if (c) c.checked = on;
   }
 
   function onQuizResolveToggle(e) {
@@ -1338,6 +1340,7 @@
 
   if ($('sQuizResolve')) $('sQuizResolve').addEventListener('change', onQuizResolveToggle);
   if ($('sQuizResolveChat')) $('sQuizResolveChat').addEventListener('change', onQuizResolveToggle);
+  if ($('sQuizResolve2')) $('sQuizResolve2').addEventListener('change', onQuizResolveToggle);
 
   $('sOnPlayer').addEventListener('change', function (e) { S.safety.safety.onPlayer = e.target.value; markDirty('safetyMsg'); });
   $('sIgnore').addEventListener('input', function (e) {
