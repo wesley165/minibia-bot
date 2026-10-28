@@ -32,6 +32,7 @@
       <span id="stateBadge" class="badge badge-muted">Onbekend</span>
       <span id="stateReason" class="state-reason"></span>
       <span id="restartMsg" class="state-reason" role="status"></span>
+      <span id="updateMsg" class="state-reason" role="status"></span>
     </div>
     <div class="topbar-right">
       <span id="connBadge" class="conn conn-off">Niet verbonden</span>
@@ -40,6 +41,7 @@
       <button id="btnResume" class="btn">Doorgaan</button>
       <button id="btnStop" class="btn btn-danger">Stop</button>
       <button id="btnRestart" class="btn" type="button" title="Browser opnieuw opstarten, inloggen en de bot starten">Herstart</button>
+      <button id="btnUpdate" class="btn" type="button" title="Nieuwste versie van GitHub installeren">Bijwerken</button>
       <a id="btnVnc" class="btn" href="/vnc/vnc.html?autoconnect=true&amp;resize=scale&amp;path=vnc/websockify" target="_blank" rel="noopener" title="Live beeld van Chrome op de VPS">Live beeld</a>
       <button id="btnVncOff" class="btn" type="button" title="Live beeld uitzetten (scheelt rekenkracht op de VPS)" hidden>Live uit</button>
       <button id="btnTheme" class="btn" type="button" aria-pressed="false" title="Licht of donker">Donker</button>
@@ -510,6 +512,7 @@
   <script src="events.js"></script>
   <script src="theme.js"></script>
   <script src="restart.js"></script>
+  <script src="update.js"></script>
   <script src="vnc.js"></script>
 </body>
 </html>
