@@ -181,6 +181,13 @@
       if (now - st.lastStepAt > 800 || !p.isWalking) { st.lastStepAt = now; B.api.walkTo(t.approach.x, t.approach.y, t.approach.z); }
       return { mode: 'walking', why: 'lokken: naar ' + t.approach.name };
     }
+    // Staat er nog een lok-monster in beeld (bijv. Giant Spider) maar valt hij nu niet aan?
+    // Dan niet weglopen: wachten tot hij dichterbij komt, zodat hij in beeld blijft.
+    var vis = nearestMonster(ctx, p, cfg, 9);
+    if (vis && Math.abs(vis.x - p.x) <= 7 && Math.abs(vis.y - p.y) <= 5) {
+      if (p.isWalking && B.api.cancelWalk) B.api.cancelWalk();
+      return { mode: 'fighting', why: 'lokken: wachten op ' + vis.name };
+    }
     // Geen lok-monster (meer) in de buurt: naar de trap lopen.
     if (now - st.lastStepAt > 800 || !p.isWalking) { st.lastStepAt = now; B.api.walkTo(goal.x, goal.y, goal.z); }
     return { mode: 'walking', why: 'lokken: naar de trap' };
