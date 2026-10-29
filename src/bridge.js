@@ -13,7 +13,7 @@ const ORIGIN = 'https://minibia.com';
 const POLL_WAIT_MS = 20000;   // zo lang houdt de server een poll open
 const CMD_TIMEOUT_MS = 10000; // zo lang wachten op antwoord van de pagina
 const LOST_AFTER_MS = 45000;  // geen contact meer: verbinding weg
-const MAX_BODY = 1024 * 1024;
+const MAX_BODY = 8 * 1024 * 1024; // quizdumps bevatten base64-canvasbeelden
 
 // Vaste sleutel, zodat alleen onze extensie met de brug kan praten.
 function loadToken(root) {
@@ -286,6 +286,36 @@ function createBridge({ root, onEvent, log }) {
       } catch (e) {
         log('Quiz-AI mislukt: ' + (e && e.message ? e.message : e));
         return sendJson(res, 200, { choice: -1 });
+      }
+    }
+
+    // Quiz-dump: de extensie stuurt een complete vastlegging van het
+    // quizvenster (HTML, structuur, canvas-beelden) naar data/quizdumps/.
+    // Zo kunnen we echte quizzes analyseren zonder ze te kunnen triggeren.
+    if (pathname === '/bridge/quizdump' && req.method === 'POST') {
+      seen();
+      try {
+        const body = await readBody(req);
+        const dir = path.join(root, 'data', 'quizdumps');
+        fs.mkdirSync(dir, { recursive: true });
+        const at = String((body && body.at) || new Date().toISOString());
+        const name = at.replace(/[:.]/g, '-');
+        const canvases = Array.isArray(body && body.canvases) ? body.canvases : [];
+        const crops = Array.isArray(body && body.crops) ? body.crops : [];
+        for (const img of canvases.concat(crops)) {
+          const m = /^data:image\/png;base64,([\s\S]+)$/.exec(String(img && img.url || ''));
+          if (!m) continue;
+          const safe = String(img.name || 'img').replace(/[^a-z0-9\-]/gi, '_').slice(0, 40);
+          fs.writeFileSync(path.join(dir, name + '-' + safe + '.png'), Buffer.from(m[1], 'base64'));
+        }
+        const meta = Object.assign({}, body);
+        delete meta.canvases; delete meta.crops;
+        fs.writeFileSync(path.join(dir, name + '.json'), JSON.stringify(meta, null, 2));
+        log('Quiz-dump opgeslagen: ' + name + ' (' + (canvases.length + crops.length) + ' beelden).');
+        return sendJson(res, 200, { ok: true });
+      } catch (e) {
+        log('Quiz-dump mislukt: ' + (e && e.message ? e.message : e));
+        return sendJson(res, 200, { ok: false });
       }
     }
 

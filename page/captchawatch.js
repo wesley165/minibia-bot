@@ -87,6 +87,26 @@
         if (r.width > 10 && r.height > 10) return el;
       }
     } catch (e) { /* niets */ }
+    // Laatste vangnet: de quiz is altijd een klein venstertje bovenop de
+    // pagina. Als er een vaste/hoog-z-index laag verschijnt met vraag- of
+    // kliktekst, behandelen we die ook als quiz — zo mist de bot geen enkele
+    // variant meer, ook niet als het spel de class-naam verandert.
+    try {
+      var layers = document.querySelectorAll('body > *, body > div > *');
+      for (var j = 0; j < layers.length; j++) {
+        var L = layers[j];
+        if (L.id === 'captcha-modal') continue;
+        var lr = L.getBoundingClientRect();
+        if (lr.width < 120 || lr.height < 60 || lr.width > window.innerWidth * 0.95) continue;
+        var st = window.getComputedStyle(L);
+        if (st.display === 'none' || st.visibility === 'hidden' || Number(st.opacity) === 0) continue;
+        if (!(st.position === 'fixed' || parseInt(st.zIndex, 10) >= 100)) continue;
+        var txt = String(L.textContent || '');
+        if (/quiz|verificatie|verification|anti-?bot|captcha|robot|menschelijk|human|bewijs dat|prove you|\bwat is\b|\bhow many\b|\bkies\b|\bclick\b|\bklik\b/i.test(txt)) {
+          return L;
+        }
+      }
+    } catch (e) { /* niets */ }
     return null;
   }
 
@@ -507,6 +527,7 @@
 
   B.captchawatch = {
     check: check,
+    quizElement: quizElement,
     quizVisible: quizVisible,
     quizKind: function () { return quizKind(quizElement()); },
     // Laatste quiz-teksten (voor het log en voor de engine).
