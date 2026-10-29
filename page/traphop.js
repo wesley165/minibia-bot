@@ -198,6 +198,7 @@
 
     if (st.phase === 'lureOut') {
       while (lure.i < r.length && cheb(r[lure.i], p) <= 1) lure.i++;
+      if (lure.i >= r.length && cfg.lureLoop) { lure.i = 0; }   // rondje: gewoon opnieuw
       if (lure.i >= r.length) { log(ctx, 'eind van de lokroute, terug naar de trap.'); startBack(cfg, p); }
       else {
         if (now - st.lastStepAt > 800 || !p.isWalking) { st.lastStepAt = now; B.api.walkTo(r[lure.i].x, r[lure.i].y, r[lure.i].z); }
