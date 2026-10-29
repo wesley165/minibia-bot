@@ -189,6 +189,9 @@
     var now = ctx.now;
     var base = cfg.base;
     var minHp = num(cfg.minHpPct, 60);
+    // Ver van de trap (bijv. na een death of als je zelf ergens anders speelt)? Niets doen,
+    // dan pauzeert de engine zelf ('waar'). Nooit in de verte naar de tempel lopen.
+    if (Math.max(cheb(p, base), cheb(p, cfg.below)) > num(cfg.maxRange, 40) || (p.z !== base.z && p.z !== cfg.below.z)) { reset(); return null; }
 
     // Boven (veilige verdieping).
     if (p.z === base.z) {
