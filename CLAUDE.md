@@ -24,7 +24,7 @@ Karakter: John Bow (paladin, crossbow + bolts), account "wess". Schrijf alles op
 3. Herladen (hieronder). Daarna in het log kijken of de bot weer loopt.
 
 ## Herladen (extensie + tab)
-Wacht tot `monstersNear` leeg is. Script: `/root/herlaad.sh` (wacht zelf op rust, herlaadt de extensie en de tab; John logt vanzelf weer in).
+Altijd met het vaste script: `bash /root/herlaad.sh` (kopie van scripts/herlaad.sh in de repo). Het wacht tot er geen monsters zijn, herlaadt de extensie via het Chrome-menu (Extensions > Manage extensions > herlaad-knop), sluit dat tabblad, herlaadt het Minibia-tabblad en bevestigt 'Reload site?'. Typen in de adresbalk met xdotool werkt niet (opent het Chrome-menu). Controleer daarna `version` in /api/status: die moet de tijd van je build zijn. Script aangepast? Kopie in /root vernieuwen.
 
 ## Routes en kaarten
 - Verkennen: `WJ_ADMIN=$(cat data/admin-token) python3 scripts/verken.py <minuten> <bereik> [kaart.json] [noord|zuid|oost|west|punt:x,y]`. Stopt bij een trap, neemt nooit een trap.
