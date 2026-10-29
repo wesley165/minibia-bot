@@ -167,6 +167,14 @@
 
   function lureTick(ctx, p, cfg, now) {
     var minHp = num(cfg.minHpPct, 60);
+    // Nieuwe lokroute in de instellingen? Meteen overnemen, vanaf het dichtstbijzijnde punt.
+    var rs = Array.isArray(cfg.lureRoutes) ? cfg.lureRoutes : [];
+    if (rs.length && lure.route && rs.indexOf(lure.route) < 0 && st.phase === 'lureOut') {
+      lure.route = rs[0];
+      var kk = 0, bb = Infinity;
+      for (var ii = 0; ii < lure.route.length; ii++) { var dd = cheb(lure.route[ii], p); if (dd < bb) { bb = dd; kk = ii; } }
+      lure.i = kk;
+    }
     var r = lure.route || [];
     if (!(p.hpPct >= minHp) && st.phase === 'lureOut') { log(ctx, 'HP laag, terug naar de trap.'); startBack(cfg, p); }
 
