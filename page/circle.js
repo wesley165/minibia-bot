@@ -14,6 +14,7 @@
   var lastStep = 0;
   var dir = 1;          // 1 = met de klok mee, -1 = tegen de klok in
   var dirSince = 0;
+  var idx = -1;         // punt van de ring waar we nu heen lopen
   var why = '';
 
   function num(v, d) { v = Number(v); return isFinite(v) ? v : d; }
@@ -77,20 +78,24 @@
     // Spider nog ver weg: blijven staan en schieten, dan komt hij dichterbij.
     if (near >= num(cfg.holdFrom, 5)) { why = 'wachten op spider'; return { mode: 'fighting', why: why }; }
 
-    // Richting kiezen: weg van de spiders. Kijk 2 punten vooruit in beide richtingen;
+    // Richting kiezen: weg van de spiders. Vergelijk het volgende punt in beide richtingen;
     // de kant waar de dichtstbijzijnde spider het verst weg blijft, wint. Een gekozen
     // richting blijft 3 s staan, behalve als je anders recht op een spider afloopt.
-    function ahead(d) {
-      var a1 = ring[((k + d) % ring.length + ring.length) % ring.length];
-      if (cheb(a1, p) <= 1) a1 = ring[((k + 2 * d) % ring.length + ring.length) % ring.length];
-      return a1;
-    }
+    var n = ring.length;
+    function at(i) { return ring[((i % n) + n) % n]; }
     function gap(q) { var m = Infinity; lure.forEach(function (c) { m = Math.min(m, cheb(c, q)); }); return m; }
-    var here = ahead(dir), other = ahead(-dir);
-    var gHere = gap(here), gOther = gap(other);
+    if (idx < 0 || cheb(at(idx), p) > 4) idx = (cheb(ring[k], p) === 0) ? k + dir : k;
+    var gHere = gap(at(cheb(at(idx), p) === 0 ? idx + dir : idx));
+    var gOther = gap(at(k - dir));
     var stuck = gHere <= 1 && gOther > 1;
-    if (stuck || (now - dirSince > 3000 && gOther >= gHere + 2)) { dir = -dir; dirSince = now; here = other; }
-    stepToward(p, here, lure, now);
+    if (stuck || (now - dirSince > 3000 && gOther >= gHere + 2)) {
+      dir = -dir; dirSince = now;
+      idx = (cheb(ring[k], p) === 0) ? k + dir : k;
+    }
+    // Pas door naar het volgende punt als we er precies op staan (geen hoeken afsnijden).
+    if (cheb(at(idx), p) === 0) idx += dir;
+    idx = ((idx % n) + n) % n;
+    stepToward(p, at(idx), lure, now);
     why = 'rondje ' + (dir > 0 ? 'met de klok mee' : 'tegen de klok in');
     return { mode: 'fighting', why: why };
   }
