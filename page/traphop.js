@@ -50,7 +50,7 @@
       if (!c.canSee) return;
       var d = Math.max(Math.abs(c.x - p.x), Math.abs(c.y - p.y));
       // Eerst een vrije schietlijn, dan het minste HP, dan het dichtst bij.
-      var key = (c.los ? 0 : 100000) + c.hpPct * 100 + d;
+      var key = (c.los ? 0 : 100000) + (/^giant spider$/i.test(c.name) ? 0 : 50000) + c.hpPct * 100 + d;   // Giant Spider altijd eerst
       if (key < bestKey) { bestKey = key; best = c; }
     });
     return best;
