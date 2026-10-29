@@ -14,11 +14,17 @@
   //     waitUpMs: 1000,            // boven wachten na een schot
   //     emptyWaitMs: 5000,         // boven wachten als er beneden niets stond
   //     maxDownMs: 2500,           // nooit langer beneden
-  //     range: 7 }                 // monsters binnen zoveel tegels tellen
+  //     range: 7,                  // monsters binnen zoveel tegels tellen
+  //     lureAfterEmpty: 2,         // zo vaak achter elkaar niets beneden: monsters ophalen
+  //     lureSee: 7,                // monster binnen zoveel tegels: terug naar de trap
+  //     lureRoutes: [[{x,y,z},...], ...] }  // looproutes vanaf de trap (bijv. oost, zuid, zuidwest)
+  // Lokken: loopt een lokroute af. Ziet hij een monster, dan valt hij aan en stapt
+  // hij terug naar de trap (de monsters lopen mee). Bij de trap: omhoog en trap-hoppen.
   // Gebruikt alleen B.api en ctx.
 
   var st = { phase: 'up', since: 0, nextDownAt: 0, ammo0: null, targetId: null, targetHp: null, attackedAt: 0, empty: false, lastStepAt: 0 };
-  var stats = { shots: 0, empties: 0, lastShotMs: null, lastRoundMs: null, lastShotAt: 0, shotGapMs: null, downAt: 0 };
+  var lure = { empties: 0, idx: 0, route: null, i: 0, back: null, since: 0 };
+  var stats = { shots: 0, empties: 0, lures: 0, lureName: null, lastShotMs: null, lastRoundMs: null, lastShotAt: 0, shotGapMs: null, downAt: 0 };
 
   function num(v, d) { v = Number(v); return isFinite(v) ? v : d; }
   function lower(s) { return String(s || '').toLowerCase(); }
@@ -60,6 +66,85 @@
     else B.api.walkTo(up.x, up.y, up.z);
   }
 
+
+  function cheb(a, b) { return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y)); }
+
+  // Eén stap richting punt q (met toetsen, zodat het doel blijft staan en hij doorschiet).
+  function stepToward(p, q, now) {
+    if (now - st.lastStepAt < 150) return;
+    var best = null, bestSc = Infinity;
+    for (var dx = -1; dx <= 1; dx++) for (var dy = -1; dy <= 1; dy++) {
+      if (!dx && !dy) continue;
+      var n = { x: p.x + dx, y: p.y + dy };
+      if (B.api.tileFree && !B.api.tileFree(n.x, n.y, p.z)) continue;
+      if (B.api.dangerTile && B.api.dangerTile(n.x, n.y, p.z)) continue;
+      var sc = cheb(n, q) * 10 + Math.abs(n.x - q.x) + Math.abs(n.y - q.y) + (dx && dy ? 3 : 0);
+      if (sc < bestSc) { bestSc = sc; best = { dx: dx, dy: dy }; }
+    }
+    if (best && B.api.step(best.dx, best.dy)) st.lastStepAt = now;
+  }
+
+  function nearestMonster(ctx, p, cfg, r) {
+    var list = monstersBelow(ctx, p, Object.assign({}, cfg, { range: r }));
+    var best = null, bd = Infinity;
+    list.forEach(function (c) { var d = cheb(c, p) + (c.los ? 0 : 3); if (d < bd) { bd = d; best = c; } });
+    return best;
+  }
+
+  // Terugweg: de lokroute achterstevoren vanaf het punt waar je nu bent, en dan de trap.
+  function startBack(cfg, p) {
+    var r = lure.route || [];
+    var k = 0, bd = Infinity;
+    for (var i = 0; i < r.length; i++) { var d = cheb(r[i], p); if (d < bd) { bd = d; k = i; } }
+    var back = r.slice(0, k + 1).reverse();
+    back.push({ x: cfg.below.x, y: cfg.below.y, z: cfg.below.z });
+    lure.back = back;
+    lure.i = 0;
+    st.phase = 'lureBack';
+    st.since = Date.now();
+  }
+
+  function lureTick(ctx, p, cfg, now) {
+    var minHp = num(cfg.minHpPct, 60);
+    var see = num(cfg.lureSee, 7);
+    var m = nearestMonster(ctx, p, cfg, see);
+    if (st.phase === 'lureOut') {
+      if (m || !(p.hpPct >= minHp)) { startBack(cfg, p); }
+      else {
+        var r = lure.route;
+        while (lure.i < r.length && cheb(r[lure.i], p) <= 1) lure.i++;
+        if (lure.i >= r.length) { startBack(cfg, p); }
+        else {
+          if (now - st.lastStepAt > 800 || !(ctx.player && ctx.player.isWalking)) {
+            st.lastStepAt = now;
+            B.api.walkTo(r[lure.i].x, r[lure.i].y, r[lure.i].z);
+          }
+          return { mode: 'walking', why: 'lokken: heen' };
+        }
+      }
+    }
+    // Terug naar de trap, onderweg aanvallen.
+    var curId = p.targetId;
+    var curAlive = curId != null && (ctx.creatures || []).some(function (c) { return c.id === curId && c.hpPct > 0; });
+    if (m && !curAlive && now - (lure.attackAt || 0) > 400) { lure.attackAt = now; B.api.attack(m.id); }
+    var bk = lure.back || [];
+    while (lure.i < bk.length - 1 && cheb(bk[lure.i], p) <= 1) lure.i++;
+    var goal = bk[lure.i] || cfg.below;
+    if (lure.i >= bk.length - 1 && p.x === cfg.below.x && p.y === cfg.below.y) {
+      // Bij de trap: omhoog. Daarna gewoon trap-hoppen.
+      st.phase = 'goingUp';
+      lure.empties = 0;
+      goUp(ctx, p, cfg, now);
+      return { mode: 'walking', why: 'lokken: trap op' };
+    }
+    if (now - st.since > 60000) {
+      // Vastgelopen op de terugweg: dan maar met het spel zelf lopen.
+      if (B.api.clearTarget) B.api.clearTarget();
+      B.api.walkTo(goal.x, goal.y, goal.z);
+    } else stepToward(p, goal, now);
+    return { mode: m ? 'fighting' : 'walking', why: 'lokken: terug' };
+  }
+
   function tick(ctx) {
     var cfg = ctx.config && ctx.config.trapHop;
     if (!cfg || !cfg.enabled || !cfg.base || !cfg.below) return null;
@@ -96,6 +181,7 @@
 
     // Beneden.
     if (p.z === cfg.below.z) {
+      if (st.phase === 'lureOut' || st.phase === 'lureBack') return lureTick(ctx, p, cfg, now);
       if (st.phase !== 'down' && st.phase !== 'goingUp') {
         st.phase = 'down';
         st.since = now;
@@ -120,7 +206,7 @@
           if (!tc || !(tc.hpPct > 0) || (st.targetHp != null && tc.hpPct < st.targetHp)) shot = true;
         }
         if (shot) {
-          done = true; why = 'schot';
+          done = true; why = 'schot'; lure.empties = 0;
           stats.shots++;
           stats.lastShotMs = now - st.since;
           if (stats.lastShotAt) stats.shotGapMs = now - stats.lastShotAt;
@@ -135,6 +221,16 @@
           if (B.api.attack(t.id)) { st.targetId = t.id; st.targetHp = t.hpPct; st.attackedAt = now; }
         } else if (now - st.since > 700) {
           // Monsters zijn na 0,7 s in beeld. Niets? Dan omhoog en langer wachten.
+          lure.empties++;
+          var routes = Array.isArray(cfg.lureRoutes) ? cfg.lureRoutes.filter(function (r) { return r && r.length; }) : [];
+          if (routes.length && lure.empties >= num(cfg.lureAfterEmpty, 2) && p.hpPct >= minHp) {
+            lure.route = routes[lure.idx % routes.length];
+            stats.lureName = (cfg.lureNames && cfg.lureNames[lure.idx % routes.length]) || String(lure.idx % routes.length);
+            lure.idx++; lure.i = 0; stats.lures++;
+            st.phase = 'lureOut'; st.since = now;
+            log(ctx, 'niets beneden, monsters ophalen (' + stats.lureName + ').');
+            return lureTick(ctx, p, cfg, now);
+          }
           done = true; why = 'niets beneden'; st.empty = true; stats.empties++;
         }
       }
@@ -154,6 +250,7 @@
 
   function reset() {
     st = { phase: 'up', since: 0, nextDownAt: 0, ammo0: null, targetId: null, targetHp: null, attackedAt: 0, empty: false, lastStepAt: 0 };
+    lure = { empties: 0, idx: 0, route: null, i: 0, back: null, since: 0 };
   }
 
   B.traphop = { tick: tick, reset: reset, stats: function () { return Object.assign({ phase: st.phase }, stats); } };
