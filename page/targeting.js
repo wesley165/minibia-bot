@@ -232,6 +232,8 @@
   // Onbereikbaar: binnen unreachableMs niet dichterbij en niet geraakt.
   // Geeft true als we het doel hebben losgelaten.
   function checkUnreachable(ctx, cfg, pick) {
+    // Uit te zetten met targeting.unreachableOff: dan nooit een doel loslaten als 'onbereikbaar'.
+    if (cfg.unreachableOff) return false;
     var now = ctx.now;
     var id = pick.c.id;
     if (!track || track.id !== id) {
