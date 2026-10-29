@@ -26,7 +26,7 @@
     });
   }
 
-  // Eén stap richting q, nooit naast een monster als het anders kan.
+  // Eén stap richting q, nooit naast een Giant Spider als het anders kan (andere monsters zijn niet gevaarlijk).
   function stepToward(p, q, mons, now) {
     if (now - lastStep < 150 || p.isWalking) return false;
     var best = null, bestSc = Infinity;
@@ -69,7 +69,7 @@
 
     // Ver van de spot: eerst ernaartoe (de spiders lopen mee).
     if (bd > 3) {
-      stepToward(p, ring[k], mons, now);
+      stepToward(p, ring[k], lure, now);
       why = 'naar de spot';
       return { mode: 'fighting', why: why };
     }
@@ -89,7 +89,7 @@
     var gHere = gap(here), gOther = gap(other);
     var stuck = gHere <= 1 && gOther > 1;
     if (stuck || (now - dirSince > 3000 && gOther >= gHere + 2)) { dir = -dir; dirSince = now; here = other; }
-    stepToward(p, here, mons, now);
+    stepToward(p, here, lure, now);
     why = 'rondje ' + (dir > 0 ? 'met de klok mee' : 'tegen de klok in');
     return { mode: 'fighting', why: why };
   }
