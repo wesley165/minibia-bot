@@ -131,13 +131,22 @@
 
   // Gewoon hunten (aanvallen, 3-4 tegels afstand, naar het monster toe als hij te ver staat),
   // met als enige verschil: bij het weglopen richting de trap. Alleen lok-monsters.
+  // Zit er een Giant Spider (config lureChase) achter je aan? Alleen dan richting de tempel.
+  function chasing(ctx, p, cfg) {
+    var names = (Array.isArray(cfg.lureChase) ? cfg.lureChase : ['Giant Spider']).map(lower);
+    return (ctx.creatures || []).some(function (c) {
+      return c && c.type === 1 && c.hpPct > 0 && c.z === p.z && names.indexOf(lower(c.name)) >= 0 && cheb(c, p) <= 7;
+    });
+  }
+
   function huntTick(ctx, p, cfg, now) {
     var only = (Array.isArray(cfg.lureTargets) && cfg.lureTargets.length) ? cfg.lureTargets : null;
     var tc = Object.assign({}, (ctx.config && ctx.config.targeting) || {});
     tc.keepDistance = num(cfg.lureKeep, 3);
     tc.kiteRange = num(cfg.lureRange, tc.keepDistance + 1);
     if (only) { tc.monsters = only.map(function (n) { return { name: n, priority: 1 }; }); tc.attackAll = false; }
-    var tctx = Object.assign({}, ctx, { config: Object.assign({}, ctx.config, { targeting: tc }), kiteHome: { x: cfg.below.x, y: cfg.below.y, z: cfg.below.z } });
+    var home = chasing(ctx, p, cfg) ? { x: cfg.below.x, y: cfg.below.y, z: cfg.below.z } : null;
+    var tctx = Object.assign({}, ctx, { config: Object.assign({}, ctx.config, { targeting: tc }), kiteHome: home });
     var t = B.targeting ? safe(function () { return B.targeting.tick(tctx); }) : null;
     if (t && t.fighting) {
       if (B.kite) safe(function () { return B.kite.tick(tctx, t.targetId); });
@@ -161,6 +170,14 @@
     var r = lure.route || [];
     if (!(p.hpPct >= minHp) && st.phase === 'lureOut') { log(ctx, 'HP laag, terug naar de trap.'); startBack(cfg, p); }
 
+    // Giant Spider achter je aan en je bent bij de trap: omhoog, dan trap-hoppen.
+    if (chasing(ctx, p, cfg) && cheb(p, cfg.below) <= 2) {
+      if (B.api.clearTarget) B.api.clearTarget();
+      st.phase = 'goingUp';
+      lure.empties = 0; lure.fought = false;
+      goUp(ctx, p, cfg, now);
+      return { mode: 'walking', why: 'lokken: spider mee, trap op' };
+    }
     // Lok-monster in de buurt (Giant Spider, Wolf): gewoon hunten.
     if (p.hpPct >= minHp) {
       var h = huntTick(ctx, p, cfg, now);
@@ -171,8 +188,7 @@
       if (!lure.quietSince) lure.quietSince = now;
       if (now - lure.quietSince < 1500) return { mode: 'action', why: 'lokken: kijken' };
       lure.fought = false;
-      if (cheb(p, cfg.below) <= 10) { startBack(cfg, p); }
-      else if (st.phase === 'lureOut') {
+      if (st.phase === 'lureOut') {
         // Verder op de lokroute vanaf het dichtstbijzijnde punt.
         var k = 0, bd = Infinity;
         for (var i = 0; i < r.length; i++) { var d = cheb(r[i], p); if (d < bd) { bd = d; k = i; } }
