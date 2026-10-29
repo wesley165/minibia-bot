@@ -11,7 +11,7 @@
 # Of met eigen repo/branch:
 #   REPO=https://github.com/jouw-user/jouw-repo.git BRANCH=main bash scripts/fix-github.sh
 set -u
-REPO="${REPO:-https://github.com/wesley165/minibia-cavebot.git}"
+REPO="${REPO:-https://github.com/wesley165/minibia-bot.git}"
 BRANCH="${BRANCH:-main}"
 
 zodat() { su minibia -s /bin/bash -c "cd /home/minibia/bot && $1" 2>/dev/null; }
@@ -33,7 +33,7 @@ if [ -d /root/minibia-bot ]; then
 fi
 if [ -f /root/van-github.sh ]; then
   # Zorg dat root-skripte de juiste repo gebruiken als ze die hardcoded hebben.
-  grep -q 'minibia-cavebot\|minibia-bot' /root/van-github.sh && \
+  grep -q 'minibia-bot\|minibia-bot' /root/van-github.sh && \
     sed -i "s#github.com[:/][^ ]*minibia-[a-z]*\.git#$REPO#g; s#git@github.com:[^ ]*minibia-[a-z]*#$REPO#g" /root/van-github.sh && \
     echo "   /root/van-github.sh URL gecorrigeerd."
 fi
