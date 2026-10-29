@@ -119,6 +119,8 @@
     var r = lure.route || [];
     var k = 0, bd = Infinity;
     for (var i = 0; i < r.length; i++) { var d = cheb(r[i], p); if (d < bd) { bd = d; k = i; } }
+    // Rondje: liefst het vroegste punt dat bijna even dichtbij ligt (kortste weg terug).
+    for (var j = 0; j < k; j++) if (cheb(r[j], p) <= bd + 2) { k = j; break; }
     var back = r.slice(0, k + 1).reverse();
     back.push({ x: cfg.below.x, y: cfg.below.y, z: cfg.below.z });
     lure.back = back;
