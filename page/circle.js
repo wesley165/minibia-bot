@@ -106,6 +106,8 @@
 
     // Ver van de spot: eerst ernaartoe (de spiders lopen mee).
     if (bd > 3) {
+      // Niet te ver vooruit lopen: staat de spider verder dan leadDist, eerst wachten en schieten.
+      if (near > num(cfg.leadDist, 3)) { why = 'lokken: wachten op spider'; return { mode: 'fighting', why: why }; }
       stepToward(p, ring[k], lure, now);
       why = 'naar de spot';
       return { mode: 'fighting', why: why };
