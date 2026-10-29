@@ -258,6 +258,17 @@
 
     // Beneden.
     if (p.z === cfg.below.z) {
+      // Beneden maar niet bij de trap (bijv. na een herstart of quiz) en geen spider achter je aan?
+      // Dan niet terug naar de trap lopen, maar verder met hunten op de lokroute.
+      if ((st.phase === 'goingUp' || st.phase === 'down' || st.phase === 'up') && cheb(p, cfg.below) > 3 && !chasing(ctx, p, cfg)) {
+        var routes0 = Array.isArray(cfg.lureRoutes) ? cfg.lureRoutes.filter(function (r) { return r && r.length; }) : [];
+        if (routes0.length) {
+          lure.route = lure.route || routes0[0];
+          var k0 = 0, bd0 = Infinity;
+          for (var i0 = 0; i0 < lure.route.length; i0++) { var d0 = cheb(lure.route[i0], p); if (d0 < bd0) { bd0 = d0; k0 = i0; } }
+          lure.i = k0; st.phase = 'lureOut'; st.since = now;
+        }
+      }
       if (st.phase === 'lureOut' || st.phase === 'lureBack') return lureTick(ctx, p, cfg, now);
       if (st.phase !== 'down' && st.phase !== 'goingUp') {
         st.phase = 'down';

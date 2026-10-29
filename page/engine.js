@@ -915,7 +915,8 @@
       if (phase === 'refill') { mode = 'action'; startRefill(); return; }
 
       // Trap-hoppen (config.trapHop): af, één schot, op, kort wachten. Neemt targeting en route over.
-      if (B.traphop && trapHopOn() && phase === 'hunt') {
+      if (B.traphop && trapHopOn() && (phase === 'hunt' || phase === 'toHunt')) {
+        seek = null;
         var th = safeCall(function () { return B.traphop.tick(ctx); }, null);
         if (th) { mode = th.mode; return; }
       }
