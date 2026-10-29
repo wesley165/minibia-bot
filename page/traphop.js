@@ -129,27 +129,67 @@
     st.since = Date.now();
   }
 
+  // Gewoon hunten (aanvallen, 3-4 tegels afstand, naar het monster toe als hij te ver staat),
+  // met als enige verschil: bij het weglopen richting de trap. Alleen lok-monsters.
+  function huntTick(ctx, p, cfg, now) {
+    var only = (Array.isArray(cfg.lureTargets) && cfg.lureTargets.length) ? cfg.lureTargets : null;
+    var tc = Object.assign({}, (ctx.config && ctx.config.targeting) || {});
+    tc.keepDistance = num(cfg.lureKeep, 3);
+    tc.kiteRange = num(cfg.lureRange, tc.keepDistance + 1);
+    if (only) { tc.monsters = only.map(function (n) { return { name: n, priority: 1 }; }); tc.attackAll = false; }
+    var tctx = Object.assign({}, ctx, { config: Object.assign({}, ctx.config, { targeting: tc }), kiteHome: { x: cfg.below.x, y: cfg.below.y, z: cfg.below.z } });
+    var t = B.targeting ? safe(function () { return B.targeting.tick(tctx); }) : null;
+    if (t && t.fighting) {
+      if (B.kite) safe(function () { return B.kite.tick(tctx, t.targetId); });
+      return { mode: 'fighting', why: 'lokken: hunten' };
+    }
+    if (t && t.approach) {
+      if (now - st.lastStepAt > 800 || !p.isWalking) { st.lastStepAt = now; B.api.walkTo(t.approach.x, t.approach.y, t.approach.z); }
+      return { mode: 'walking', why: 'lokken: naar ' + t.approach.name };
+    }
+    // In beeld maar (nog) niet aan te vallen: blijven staan tot hij dichterbij komt.
+    var vis = nearestMonster(ctx, p, cfg, 9);
+    if (vis && Math.abs(vis.x - p.x) <= 7 && Math.abs(vis.y - p.y) <= 5) {
+      if (p.isWalking && B.api.cancelWalk) B.api.cancelWalk();
+      return { mode: 'fighting', why: 'lokken: wachten op ' + vis.name };
+    }
+    return null;
+  }
+
   function lureTick(ctx, p, cfg, now) {
     var minHp = num(cfg.minHpPct, 60);
-    var see = num(cfg.lureSee, 7);
-    var m = nearestMonster(ctx, p, cfg, see);
-    if (st.phase === 'lureOut') {
-      if (m || !(p.hpPct >= minHp)) { log(ctx, m ? (m.name + ' gezien op ' + cheb(m, p) + ' tegels, terug naar de trap.') : 'HP laag, terug.'); startBack(cfg, p); }
-      else {
-        var r = lure.route;
-        while (lure.i < r.length && cheb(r[lure.i], p) <= 1) lure.i++;
-        if (lure.i >= r.length) { log(ctx, 'eind van de lokroute, niets gevonden, terug.'); startBack(cfg, p); }
-        else {
-          if (now - st.lastStepAt > 800 || !(ctx.player && ctx.player.isWalking)) {
-            st.lastStepAt = now;
-            B.api.walkTo(r[lure.i].x, r[lure.i].y, r[lure.i].z);
-          }
-          return { mode: 'walking', why: 'lokken: heen' };
-        }
+    var r = lure.route || [];
+    if (!(p.hpPct >= minHp) && st.phase === 'lureOut') { log(ctx, 'HP laag, terug naar de trap.'); startBack(cfg, p); }
+
+    // Lok-monster in de buurt (Giant Spider, Wolf): gewoon hunten.
+    if (p.hpPct >= minHp) {
+      var h = huntTick(ctx, p, cfg, now);
+      if (h) { lure.fought = true; lure.quietSince = 0; return h; }
+    }
+    // Net klaar met vechten: even rustig? Dicht bij de trap: omhoog en trap-hoppen.
+    if (lure.fought) {
+      if (!lure.quietSince) lure.quietSince = now;
+      if (now - lure.quietSince < 1500) return { mode: 'action', why: 'lokken: kijken' };
+      lure.fought = false;
+      if (cheb(p, cfg.below) <= 10) { startBack(cfg, p); }
+      else if (st.phase === 'lureOut') {
+        // Verder op de lokroute vanaf het dichtstbijzijnde punt.
+        var k = 0, bd = Infinity;
+        for (var i = 0; i < r.length; i++) { var d = cheb(r[i], p); if (d < bd) { bd = d; k = i; } }
+        lure.i = k;
       }
     }
-    // Terug naar de trap: gewoon hunten (aanvallen en afstand houden), alleen bij
-    // het weglopen richting de trap. Alleen de lok-monsters (bijv. Giant Spider).
+
+    if (st.phase === 'lureOut') {
+      while (lure.i < r.length && cheb(r[lure.i], p) <= 1) lure.i++;
+      if (lure.i >= r.length) { log(ctx, 'eind van de lokroute, terug naar de trap.'); startBack(cfg, p); }
+      else {
+        if (now - st.lastStepAt > 800 || !p.isWalking) { st.lastStepAt = now; B.api.walkTo(r[lure.i].x, r[lure.i].y, r[lure.i].z); }
+        return { mode: 'walking', why: 'lokken: zoeken' };
+      }
+    }
+
+    // Terug naar de trap (geen lok-monsters meer in de buurt).
     var bk = lure.back || [];
     while (lure.i < bk.length - 1 && cheb(bk[lure.i], p) <= 1) lure.i++;
     var goal = bk[lure.i] || cfg.below;
@@ -159,36 +199,6 @@
       goUp(ctx, p, cfg, now);
       return { mode: 'walking', why: 'lokken: trap op' };
     }
-    if (now - st.since > 120000) {
-      // Te lang onderweg: zonder vechten naar de trap.
-      if (B.api.clearTarget) B.api.clearTarget();
-      if (now - st.lastStepAt > 800) { st.lastStepAt = now; B.api.walkTo(goal.x, goal.y, goal.z); }
-      return { mode: 'walking', why: 'lokken: terug (te lang)' };
-    }
-    var only = (Array.isArray(cfg.lureTargets) && cfg.lureTargets.length) ? cfg.lureTargets : null;
-    var tc = Object.assign({}, (ctx.config && ctx.config.targeting) || {});
-    tc.keepDistance = num(cfg.lureKeep, 4);
-    tc.kiteRange = num(cfg.lureRange, tc.keepDistance + 1);   // verder dan dit: stap naar het monster toe
-    if (only) { tc.monsters = only.map(function (n) { return { name: n, priority: 1 }; }); tc.attackAll = false; }
-    var tctx = Object.assign({}, ctx, { config: Object.assign({}, ctx.config, { targeting: tc }), kiteHome: { x: cfg.below.x, y: cfg.below.y, z: cfg.below.z } });
-    var t = B.targeting ? safe(function () { return B.targeting.tick(tctx); }) : null;
-    if (t && t.fighting) {
-      if (B.kite) safe(function () { return B.kite.tick(tctx, t.targetId); });
-      return { mode: 'fighting', why: 'lokken: hunten richting trap' };
-    }
-    // Giant Spider net buiten bereik: er gewoon naartoe, zoals bij normaal hunten.
-    if (t && t.approach && !(p.hpPct < num(cfg.minHpPct, 60))) {
-      if (now - st.lastStepAt > 800 || !p.isWalking) { st.lastStepAt = now; B.api.walkTo(t.approach.x, t.approach.y, t.approach.z); }
-      return { mode: 'walking', why: 'lokken: naar ' + t.approach.name };
-    }
-    // Staat er nog een lok-monster in beeld (bijv. Giant Spider) maar valt hij nu niet aan?
-    // Dan niet weglopen: wachten tot hij dichterbij komt, zodat hij in beeld blijft.
-    var vis = nearestMonster(ctx, p, cfg, 9);
-    if (vis && Math.abs(vis.x - p.x) <= 7 && Math.abs(vis.y - p.y) <= 5) {
-      if (p.isWalking && B.api.cancelWalk) B.api.cancelWalk();
-      return { mode: 'fighting', why: 'lokken: wachten op ' + vis.name };
-    }
-    // Geen lok-monster (meer) in de buurt: naar de trap lopen.
     if (now - st.lastStepAt > 800 || !p.isWalking) { st.lastStepAt = now; B.api.walkTo(goal.x, goal.y, goal.z); }
     return { mode: 'walking', why: 'lokken: naar de trap' };
   }
