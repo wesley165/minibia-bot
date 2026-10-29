@@ -372,7 +372,7 @@
     // 4. Tikwerk ("klik op ...") zonder leesbare meerkeuze-opties: klik de
     //    mogelijkheden één voor één af. Bevestigingsknoppen worden pas aan
     //    het eind van de lijst geprobeerd. Maximaal MAX_GUESS_CLICKS keer:
-    //    daarna wachten we op de uitlog-timer van de engine.
+    //    daarna blijft de bot rustig staan tot het venster weg is (nooit uitloggen).
     if (CLICK_RE.test(text) && clicksThisQuiz < MAX_GUESS_CLICKS) {
       if (clickNextGuess(el)) return 'working';
     }
