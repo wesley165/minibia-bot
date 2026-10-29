@@ -1363,6 +1363,13 @@
     getState: function () { return state; },
     getConfig: function () { return config; },
     quizComing: quizComing,
+    // Door captchawatch aangeroepen zodra de quiz beantwoord/gesloten is:
+    // verleng de voorbereiding een beetje en laat de pauze-vlag vallen,
+    // zodat de engine niet per ongeluk uitlogt ná een geslaagde quiz.
+    quizCleared: function () {
+      quizPause = null;
+      if (quizPrep) quizPrep.at = Date.now() - QUIZ_PREP_MS + 8000;
+    },
     // Voor captchawatch: vraag + opties naar de AI-sturen (één callback).
     quizAskAi: quizAskAi,
     // Voor captchawatch: "Resolve quizzes" aan/uit vanuit het dashboard.

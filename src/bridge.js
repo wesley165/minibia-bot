@@ -31,14 +31,16 @@ function loadToken(root) {
 // Quiz-AI: meerkeuzevragen van de anti-bot-controle beantwoorden via Claude.
 // Geen API-key = geen AI (de bot valt terug op uitloggen, zoals voorheen).
 const QUIZ_SYSTEM = [
-  'Je lost korte meerkeuzevragen op uit een quiz in een online spel.',
+  'Je lost korte quizvragen op uit een online spel (anti-bot-verificatie).',
+  'Soms is de vraag een rekensom: reken die zelf nauwkeurig uit.',
   'Antwoord ALLEEN met één cijfer: het indexnummer van het juiste antwoord.',
+  'Als je het écht niet weet, kies dan de meest waarschijnlijke optie; laat nooit niets onbeantwoord.',
   'Geen toelichting, geen leestekens, geen tekst eromheen.'
 ].join(' ');
 
-async function callQuizClaude(question, options) {
-  const key = process.env.ANTHROPIC_API_KEY || '';
-  if (!key) throw new Error('geen ANTHROPIC_API_KEY');
+const QUIZ_MODELS = ['claude-haiku-4-5', 'claude-sonnet-4-5', 'claude-opus-4-5'];
+
+async function quizCallClaude(model, question, options, key) {
   const list = options.map((o, i) => i + ': ' + o).join('\n');
   const userText = 'Vraag: ' + question + '\n\nOpties:\n' + list;
   const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -49,7 +51,7 @@ async function callQuizClaude(question, options) {
       'content-type': 'application/json'
     },
     body: JSON.stringify({
-      model: 'claude-haiku-4-5',
+      model: model,
       max_tokens: 8,
       system: QUIZ_SYSTEM,
       messages: [{ role: 'user', content: userText }]
@@ -61,10 +63,38 @@ async function callQuizClaude(question, options) {
   }
   const data = await res.json();
   const text = (data.content || []).filter((p) => p.type === 'text').map((p) => p.text).join('').trim();
-  const m = /(\d+)/.exec(text);
-  if (!m) return -1;
-  const idx = Number(m[1]);
-  return idx >= 0 && idx < options.length ? idx : -1;
+  return text;
+}
+
+async function callQuizClaude(question, options) {
+  const key = process.env.ANTHROPIC_API_KEY || '';
+  if (!key) throw new Error('geen ANTHROPIC_API_KEY');
+  let lastErr = null;
+  for (const model of QUIZ_MODELS) {
+    let text = null;
+    try {
+      text = await quizCallClaude(model, question, options, key);
+    } catch (e) {
+      // Onbekend/geweigerd model: probeer het volgende; anders ook maar.
+      lastErr = e;
+      if (e.message && e.message.includes('HTTP 40')) continue;
+      throw e;
+    }
+    // Eerst een alleenstaand cijfer; daarna elk cijfer binnen de optierange.
+    const solo = /^\s*(\d+)\s*$/.exec(text);
+    if (solo) {
+      const idx = Number(solo[1]);
+      if (idx >= 0 && idx < options.length) return idx;
+    }
+    const any = /(\d+)/.exec(text || '');
+    if (any) {
+      const idx = Number(any[1]);
+      if (idx >= 0 && idx < options.length) return idx;
+    }
+    return -1; // antwoord onbruikbaar; nog een model helpt zelden
+  }
+  if (lastErr) throw lastErr;
+  return -1;
 }
 
 function createBridge({ root, onEvent, log }) {

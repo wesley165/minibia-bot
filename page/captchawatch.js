@@ -25,6 +25,9 @@
   var CHOICE_RE = /kies|choose|select|antwoord|answer|welk|which/i;
 
   var lastAlert = {};          // key -> tijdstip van laatste melding
+  var lastClickAt = 0;         // wanneer voor het laatst iets aangeklikt is (wacht op reactie)
+  var clicksThisQuiz = 0;      // aantal klikken deze quiz (eindige gok-lijst)
+  var guessIdx = 0;            // volgende gok uit de restlijst
   var roots = [];              // elementen die we observeren
   var modalWasOpen = false;
   var announceAt = 0;          // wanneer voor het laatst een vooraankondiging werd gezien
@@ -33,6 +36,8 @@
   var solveTimer = 0;          // uitgestelde poging (DOM moet eerst renderen)
   var attemptsAt = 0;          // tijd van de vorige poging (herhalingsinterval)
   var ATTEMPT_GAP_MS = 4000;   // maximaal één DOM-poging per 4 s
+  var CLICK_SETTLE_MS = 2500;  // na een klik: zo lang wachten op de reactie van het spel
+  var MAX_GUESS_CLICKS = 16;   // eindige gok-lijst: daarna niet blijven klikken (wacht tot uitloggen)
   var AI_WAIT_UNTIL = 0;       // tot dit moment wachten op het AI-antwoord
   var AI_WAIT_MS = 25000;      // AI mag er maximaal zo lang over doen
 
@@ -250,11 +255,43 @@
     return true;
   }
 
+  // Klikpoging registreren: daarna even wachten op de reactie van het spel
+  // (nieuw venster, bevestigingsknop, of het venster gaat weg = gegokt goed).
+  function markClick() {
+    lastClickAt = Date.now();
+    clicksThisQuiz++;
+  }
+
+  // Laatste redmiddel: eendimensionale tikquiz ("klik op ...") zonder leesbare
+  // opties. Klik één voor één alle klikbare elementen in het quizvak af, met
+  // een pauze ertussen zodat we per gok kunnen zien of het venster dichtgaat.
+  // Bevestigingsknoppen laten we overslaan totdat er niets anders meer over is.
+  function clickNextGuess(el) {
+    var opts = answerOptions(el);
+    var real = [];
+    for (var i = 0; i < opts.length; i++) {
+      var l = opts[i].label.toLowerCase();
+      if (/^(verstuur|verzenden|bevestig|doorgaan|continue|submit|send|ok|ja|yes|confirm|sluit|close|annuleer|cancel)$/.test(l)) continue;
+      real.push(opts[i]);
+    }
+    var pool = real.length ? real : opts;
+    if (!pool.length) return false;
+    if (guessIdx >= pool.length) guessIdx = 0;   // rondje klaar: opnieuw beginnen
+    var pick = pool[guessIdx++];
+    if (!pick || !clickEl(pick.el)) return false;
+    markClick();
+    alertKeyed('solve-guess', 'Tikquiz: ik klik de mogelijkheden één voor één af (' + guessIdx + '/' + pool.length + ').');
+    return true;
+  }
+
   // Beslist en handelt. Geeft: 'none' (niets te doen), 'working' (poging
   // gedaan, resultaat nog onzeker), 'human' (kan niet automatisch).
   function trySolve(el) {
     var now = Date.now();
     if (now - attemptsAt < ATTEMPT_GAP_MS) return 'working';
+    // Net iets aangeklikt? Geef het spel de kans om te reageren voordat we
+    // verder gaan (anders klikken we losse antwoorden door elkaar heen).
+    if (lastClickAt && now - lastClickAt < CLICK_SETTLE_MS) return 'working';
     if (now < AI_WAIT_UNTIL) return 'working';
     // "Resolve quizzes" staat uit in het dashboard: niet zelf proberen.
     // De engine logt dan netjes uit (quizPauseTick).
@@ -278,9 +315,10 @@
       if (pick) {
         if (!pick.typed) {
           if (!clickEl(pick.el)) return 'working';
+          markClick();
         }
         var cf = confirmButton(el);
-        if (cf) clickEl(cf);
+        if (cf) { clickEl(cf); markClick(); }
         alertKeyed('solve-math', 'Quiz was een rekensom (' + ans + '). Ik heb het antwoord ingevuld.');
         return 'working';
       }
@@ -290,6 +328,7 @@
     // 2. Raster/veld-vraag: tellen en klikken.
     if (GRID_RE.test(text) && options.length >= 4) {
       if (solveGrid(el)) {
+        markClick();
         alertKeyed('solve-grid', 'Veldquiz: ik heb geteld en een vakje gekozen.');
         return 'working';
       }
@@ -319,13 +358,22 @@
             if (!target && opts2[choiceIdx]) target = opts2[choiceIdx];
             if (!target) return;
             if (!clickEl(target.el)) return;
+            markClick();
             var cf2 = confirmButton(q);
-            if (cf2) clickEl(cf2);
+            if (cf2) { clickEl(cf2); markClick(); }
             alertKeyed('solve-ai', 'Meerkeuzequiz: ik heb "' + labels[choiceIdx].label + '" gekozen.');
           } catch (e) { /* niets */ }
         });
         return 'working';
       }
+    }
+
+    // 4. Tikwerk ("klik op ...") zonder leesbare meerkeuze-opties: klik de
+    //    mogelijkheden één voor één af. Bevestigingsknoppen worden pas aan
+    //    het eind van de lijst geprobeerd. Maximaal MAX_GUESS_CLICKS keer:
+    //    daarna wachten we op de uitlog-timer van de engine.
+    if (CLICK_RE.test(text) && clicksThisQuiz < MAX_GUESS_CLICKS) {
+      if (clickNextGuess(el)) return 'working';
     }
 
     return 'working'; // nog niet geslaagd; volgende ronde opnieuw proberen
@@ -336,6 +384,9 @@
     solveTimer = 0;
     attemptsAt = 0;
     AI_WAIT_UNTIL = 0;
+    lastClickAt = 0;
+    clicksThisQuiz = 0;
+    guessIdx = 0;
   }
 
   // Wat voor quiz staat er? (voor meldingen en logs)
@@ -369,6 +420,7 @@
     }
     if (QUIZ_DONE_RE.test(s)) {
       remember(s);
+      try { if (B.engine && B.engine.quizCleared) B.engine.quizCleared(); } catch (e) { /* niets */ }
       alertKeyed('done', 'Quiz is beantwoord. De bot hervat zodra het venster weg is.');
     }
   }
@@ -439,7 +491,13 @@
           }
         }
       } else if (modalWasOpen) {
-        alertKeyed('gone', 'Het quizvenster is weg. De bot hervat vanzelf.');
+        // Was de wegkomst van een eigen klik? Dan heeft de laatste gok
+        // blijkbaar gewerkt (of het spel heeft de quiz herstart).
+        var msg = clicksThisQuiz > 0 && Date.now() - lastClickAt < 15000
+          ? 'Het quizvenster is weg na mijn klik-pogingen — quiz overleefd. De bot hervat vanzelf.'
+          : 'Het quizvenster is weg. De bot hervat vanzelf.';
+        try { if (B.engine && B.engine.quizCleared) B.engine.quizCleared(); } catch (e) { /* niets */ }
+        alertKeyed('gone', msg);
         resetSolveState();
       }
       modalWasOpen = open;
