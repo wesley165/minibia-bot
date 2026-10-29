@@ -206,6 +206,9 @@
 
   // Hoort een verdiepingswissel bij de route? Dan staat er een trap-, touw-,
   // use- of shovel-waypoint binnen 2 tegels van waar we stonden.
+  // Trap-hoppen aan? Dan horen verdiepingswissels erbij.
+  function trapHopOn() { return !!(config && config.trapHop && config.trapHop.enabled); }
+
   function plannedFloorChange(rt, pos) {
     var wps = (rt && rt.waypoints) || [];
     for (var i = 0; i < wps.length; i++) {
@@ -837,7 +840,7 @@
         // Onverwacht op een andere verdieping (bijv. door een gat gevallen)?
         // Gepland is het alleen bij een trap-, touw- of use-waypoint vlakbij.
         if (lastPos && ctx.now - lastPos.t < 3000 && player.z !== lastPos.z && phase === 'hunt' && !player.isDead && player.hp > 0 &&
-            !plannedFloorChange(activeRoute, lastPos)) {
+            !plannedFloorChange(activeRoute, lastPos) && !trapHopOn()) {
           var from = lastPos;
           lastPos = null;
           pause('verdieping');
@@ -910,6 +913,12 @@
 
       // Refillen: alleen healen, niets anders.
       if (phase === 'refill') { mode = 'action'; startRefill(); return; }
+
+      // Trap-hoppen (config.trapHop): af, één schot, op, kort wachten. Neemt targeting en route over.
+      if (B.traphop && trapHopOn() && phase === 'hunt') {
+        var th = safeCall(function () { return B.traphop.tick(ctx); }, null);
+        if (th) { mode = th.mode; return; }
+      }
 
       // Quiz komt eraan: alleen healen en naar een rustige plek lopen.
       if (quizActive(ctx.now)) { mode = 'walking'; quizPrepTick(player, creatures, activeRoute, ctx.now); return; }
@@ -1107,6 +1116,7 @@
       monstersNear: monstersNear,
       playersNear: playersNear,
       stats: { kills: stats.kills, startedAt: stats.startedAt, runtimeMs: runtimeMs, killsPerHour: killsPerHour, keys: keyCount },
+      trapHop: (B.traphop && trapHopOn()) ? safeCall(function () { return B.traphop.stats(); }, null) : null,
       version: B.version || 'onbekend',
       timerMode: B.timerMode || 'gewoon',
       hidden: document.hidden === true,

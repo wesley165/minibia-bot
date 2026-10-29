@@ -627,6 +627,26 @@
       }
     },
 
+    // Bewust één stap op een trap zetten (trap-hoppen). Zelfde als step, maar
+    // zonder de dangerTile-check. Alleen gebruiken als je echt van verdieping wilt.
+    stairStep: function (dx, dy) {
+      try {
+        var g = gc(); var p = me();
+        if (!g || !p || !p.__position || !g.keyboard) return false;
+        if (typeof p.isMoving === 'function' && p.isMoving()) return false;
+        var D = (typeof CONST !== 'undefined' && CONST.DIRECTION) || {};
+        var key = (dy < 0 ? 'NORTH' : dy > 0 ? 'SOUTH' : '') + (dx < 0 ? 'WEST' : dx > 0 ? 'EAST' : '');
+        var dir = D[key];
+        if (dir === undefined) return false;
+        var Pos = p.__position.constructor;
+        var to = new Pos(p.__position.x + dx, p.__position.y + dy, p.__position.z);
+        g.keyboard.__handleCharacterMovementWrapper(dir, to);
+        return true;
+      } catch (e) {
+        return false;
+      }
+    },
+
     // Chase-stand van het spel: 0 = blijven staan, 1 = volgen, 2 = agressief volgen.
     chaseMode: function () {
       try {
