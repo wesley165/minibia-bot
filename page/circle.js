@@ -12,6 +12,8 @@
   // Geen lok-monster in de buurt: niets doen (gewone route en targeting).
 
   var lastStep = 0;
+  var dir = 1;          // 1 = met de klok mee, -1 = tegen de klok in
+  var dirSince = 0;
   var why = '';
 
   function num(v, d) { v = Number(v); return isFinite(v) ? v : d; }
@@ -74,11 +76,21 @@
     // Spider nog ver weg: blijven staan en schieten, dan komt hij dichterbij.
     if (near >= num(cfg.holdFrom, 5)) { why = 'wachten op spider'; return { mode: 'fighting', why: why }; }
 
-    // Met de klok mee naar het volgende punt (sta je er al bijna, dan het punt daarna).
-    var next = ring[(k + 1) % ring.length];
-    if (cheb(next, p) <= 1) next = ring[(k + 2) % ring.length];
-    stepToward(p, next, mons, now);
-    why = 'rondje';
+    // Richting kiezen: weg van de spiders. Kijk 2 punten vooruit in beide richtingen;
+    // de kant waar de dichtstbijzijnde spider het verst weg blijft, wint. Een gekozen
+    // richting blijft 3 s staan, behalve als je anders recht op een spider afloopt.
+    function ahead(d) {
+      var a1 = ring[((k + d) % ring.length + ring.length) % ring.length];
+      if (cheb(a1, p) <= 1) a1 = ring[((k + 2 * d) % ring.length + ring.length) % ring.length];
+      return a1;
+    }
+    function gap(q) { var m = Infinity; lure.forEach(function (c) { m = Math.min(m, cheb(c, q)); }); return m; }
+    var here = ahead(dir), other = ahead(-dir);
+    var gHere = gap(here), gOther = gap(other);
+    var stuck = gHere <= 1 && gOther > 1;
+    if (stuck || (now - dirSince > 3000 && gOther >= gHere + 2)) { dir = -dir; dirSince = now; here = other; }
+    stepToward(p, here, mons, now);
+    why = 'rondje ' + (dir > 0 ? 'met de klok mee' : 'tegen de klok in');
     return { mode: 'fighting', why: why };
   }
 
