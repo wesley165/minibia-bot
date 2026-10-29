@@ -84,6 +84,27 @@
     if (best && B.api.step(best.dx, best.dy)) st.lastStepAt = now;
   }
 
+  // Weg van de monsters (nooit dichterbij), en van de mogelijke stappen die het dichtst bij het doel.
+  function stepAway(ctx, p, goal, now) {
+    if (now - st.lastStepAt < 150) return;
+    var mons = (ctx.creatures || []).filter(function (c) { return c && c.type === 1 && c.hpPct > 0 && !c.masterId && c.z === p.z && cheb(c, p) <= 8; });
+    function mind(q) { var d = Infinity; mons.forEach(function (c) { d = Math.min(d, cheb(c, q)); }); return d; }
+    var cur = mind(p), best = null, bestSc = Infinity, far = null, farD = -1;
+    for (var dx = -1; dx <= 1; dx++) for (var dy = -1; dy <= 1; dy++) {
+      if (!dx && !dy) continue;
+      var n = { x: p.x + dx, y: p.y + dy };
+      if (B.api.tileFree && !B.api.tileFree(n.x, n.y, p.z)) continue;
+      if (B.api.dangerTile && B.api.dangerTile(n.x, n.y, p.z)) continue;
+      var d = mind(n);
+      if (d > farD) { farD = d; far = { dx: dx, dy: dy }; }
+      if (d < cur) continue;
+      var sc = cheb(n, goal) * 10 + (dx && dy ? 3 : 0) - d;
+      if (sc < bestSc) { bestSc = sc; best = { dx: dx, dy: dy }; }
+    }
+    var pick = best || far;
+    if (pick && B.api.step(pick.dx, pick.dy)) st.lastStepAt = now;
+  }
+
   function nearestMonster(ctx, p, cfg, r) {
     var list = monstersBelow(ctx, p, Object.assign({}, cfg, { range: r }));
     var best = null, bd = Infinity;
@@ -109,11 +130,11 @@
     var see = num(cfg.lureSee, 7);
     var m = nearestMonster(ctx, p, cfg, see);
     if (st.phase === 'lureOut') {
-      if (m || !(p.hpPct >= minHp)) { startBack(cfg, p); }
+      if (m || !(p.hpPct >= minHp)) { log(ctx, m ? (m.name + ' gezien op ' + cheb(m, p) + ' tegels, terug naar de trap.') : 'HP laag, terug.'); startBack(cfg, p); }
       else {
         var r = lure.route;
         while (lure.i < r.length && cheb(r[lure.i], p) <= 1) lure.i++;
-        if (lure.i >= r.length) { startBack(cfg, p); }
+        if (lure.i >= r.length) { log(ctx, 'eind van de lokroute, niets gevonden, terug.'); startBack(cfg, p); }
         else {
           if (now - st.lastStepAt > 800 || !(ctx.player && ctx.player.isWalking)) {
             st.lastStepAt = now;
@@ -137,11 +158,26 @@
       goUp(ctx, p, cfg, now);
       return { mode: 'walking', why: 'lokken: trap op' };
     }
-    if (now - st.since > 60000) {
+    if (now - st.since > 90000) {
       // Vastgelopen op de terugweg: dan maar met het spel zelf lopen.
       if (B.api.clearTarget) B.api.clearTarget();
       B.api.walkTo(goal.x, goal.y, goal.z);
-    } else stepToward(p, goal, now);
+      return { mode: 'walking', why: 'lokken: terug (vast)' };
+    }
+    var keep = num(cfg.lureKeep, 4);
+    var md = m ? cheb(m, p) : Infinity;
+    if (md < keep) {
+      // Te dichtbij: een stap weg, en dan richting de tempel.
+      stepAway(ctx, p, goal, now);
+      lure.holdSince = 0;
+      return { mode: 'fighting', why: 'lokken: weg richting tempel' };
+    }
+    if (m && md <= keep + 2) {
+      // Goede afstand: blijven staan en schieten, dan lopen ze mee.
+      if (!lure.holdSince) lure.holdSince = now;
+      if (now - lure.holdSince < num(cfg.lureHoldMs, 6000)) return { mode: 'fighting', why: 'lokken: schieten' };
+    } else lure.holdSince = 0;
+    stepToward(p, goal, now);
     return { mode: m ? 'fighting' : 'walking', why: 'lokken: terug' };
   }
 
@@ -196,7 +232,11 @@
 
       var done = false, why = '';
       if (!(p.hpPct >= minHp)) { done = true; why = 'HP laag'; }
-      if (!done && now - st.since > num(cfg.maxDownMs, 2500)) { done = true; why = 'te lang beneden'; }
+      // Monster direct naast je: meteen omhoog.
+      if (!done && (ctx.creatures || []).some(function (c) { return c && c.type === 1 && c.hpPct > 0 && !c.masterId && c.z === p.z && cheb(c, p) <= 1; })) { done = true; why = 'monster naast me'; }
+      // Doel gekozen maar nog geen schot: wachten tot de bolt gaat. Zonder doel na maxDownMs omhoog,
+      // met doel pas na maxWaitShotMs (veiligheidsgrens).
+      if (!done && now - st.since > (st.targetId != null ? num(cfg.maxWaitShotMs, 10000) : num(cfg.maxDownMs, 2500))) { done = true; why = 'te lang beneden'; }
 
       if (!done) {
         // Schot gelost? Munitie minder, of het doel verloor HP.
