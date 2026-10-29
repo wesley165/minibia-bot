@@ -169,13 +169,17 @@
     var tc = Object.assign({}, (ctx.config && ctx.config.targeting) || {});
     tc.keepDistance = num(cfg.lureKeep, 4);
     tc.kiteRange = Math.max(tc.keepDistance, num(tc.kiteRange, tc.keepDistance));
-    tc.approachDistance = 0;
     if (only) { tc.monsters = only.map(function (n) { return { name: n, priority: 1 }; }); tc.attackAll = false; }
     var tctx = Object.assign({}, ctx, { config: Object.assign({}, ctx.config, { targeting: tc }), kiteHome: { x: cfg.below.x, y: cfg.below.y, z: cfg.below.z } });
     var t = B.targeting ? safe(function () { return B.targeting.tick(tctx); }) : null;
     if (t && t.fighting) {
       if (B.kite) safe(function () { return B.kite.tick(tctx, t.targetId); });
       return { mode: 'fighting', why: 'lokken: hunten richting trap' };
+    }
+    // Giant Spider net buiten bereik: er gewoon naartoe, zoals bij normaal hunten.
+    if (t && t.approach && !(p.hpPct < num(cfg.minHpPct, 60))) {
+      if (now - st.lastStepAt > 800 || !p.isWalking) { st.lastStepAt = now; B.api.walkTo(t.approach.x, t.approach.y, t.approach.z); }
+      return { mode: 'walking', why: 'lokken: naar ' + t.approach.name };
     }
     // Geen lok-monster (meer) in de buurt: naar de trap lopen.
     if (now - st.lastStepAt > 800 || !p.isWalking) { st.lastStepAt = now; B.api.walkTo(goal.x, goal.y, goal.z); }
@@ -237,7 +241,8 @@
       var done = false, why = '';
       if (!(p.hpPct >= minHp)) { done = true; why = 'HP laag'; }
       // Monster direct naast je: meteen omhoog.
-      if (!done && (ctx.creatures || []).some(function (c) { return c && c.type === 1 && c.hpPct > 0 && !c.masterId && c.z === p.z && cheb(c, p) <= 1; })) { done = true; why = 'monster naast me'; }
+      // Monster direct naast je: eerst kort de kans geven om te schieten, dan omhoog.
+      if (!done && now - st.since > num(cfg.adjacentGraceMs, 1200) && (ctx.creatures || []).some(function (c) { return c && c.type === 1 && c.hpPct > 0 && !c.masterId && c.z === p.z && cheb(c, p) <= 1; })) { done = true; why = 'monster naast me'; }
       // Doel gekozen maar nog geen schot: wachten tot de bolt gaat. Zonder doel na maxDownMs omhoog,
       // met doel pas na maxWaitShotMs (veiligheidsgrens).
       if (!done && now - st.since > (st.targetId != null ? num(cfg.maxWaitShotMs, 10000) : num(cfg.maxDownMs, 2500))) { done = true; why = 'te lang beneden'; }
