@@ -37,7 +37,8 @@
       if (B.api.dangerTile && B.api.dangerTile(n.x, n.y, p.z)) continue;
       var md = Infinity;
       mons.forEach(function (c) { md = Math.min(md, cheb(c, n)); });
-      var sc = cheb(n, q) * 10 + Math.abs(n.x - q.x) + Math.abs(n.y - q.y) + (dx && dy ? 2 : 0) + (md <= 1 ? 100 : 0);
+      // Liefst recht lopen: een schuine stap kost meer dan hij oplevert (schuin is in het spel ook trager).
+      var sc = (Math.abs(n.x - q.x) + Math.abs(n.y - q.y)) * 10 + (dx && dy ? 12 : 0) + (md <= 1 ? 100 : 0);
       if (sc < bestSc) { bestSc = sc; best = { dx: dx, dy: dy }; }
     }
     if (best && B.api.step(best.dx, best.dy)) { lastStep = now; return true; }
