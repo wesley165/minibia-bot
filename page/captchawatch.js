@@ -13,7 +13,8 @@
   //      vraag + opties worden naar Claude gestuurd en het gekozen antwoord
   //      wordt aangeklikt.
   //      - Een wachtwoordquiz kunnen we niet raden: die blijft voor jou.
-  //      Lukt oplossen niet of duurt het te lang, dan logt de engine uit.
+  //      Lukt oplossen niet, dan blijft de bot rustig staan; hij speelt vanzelf
+  //      door zodra het venster weg is. Er wordt NOOIT uitgelogd bij een quiz.
   if (B.captchawatch) return;
 
   var CHECK_MS = 1000;
@@ -37,7 +38,7 @@
   var attemptsAt = 0;          // tijd van de vorige poging (herhalingsinterval)
   var ATTEMPT_GAP_MS = 4000;   // maximaal één DOM-poging per 4 s
   var CLICK_SETTLE_MS = 2500;  // na een klik: zo lang wachten op de reactie van het spel
-  var MAX_GUESS_CLICKS = 16;   // eindige gok-lijst: daarna niet blijven klikken (wacht tot uitloggen)
+  var MAX_GUESS_CLICKS = 16;   // eindige gok-lijst: daarna niet blijven klikken (blijft staan tot het venster weg is)
   var AI_WAIT_UNTIL = 0;       // tot dit moment wachten op het AI-antwoord
   var AI_WAIT_MS = 25000;      // AI mag er maximaal zo lang over doen
 

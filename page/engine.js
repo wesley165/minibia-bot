@@ -822,12 +822,11 @@
     }).catch(function () { clearTimeout(timer); once(null); });
   }
 
-  // De bot staat stil omdat het quizvenster open is (pauze 'captcha').
-  // Hij probeert de quiz eerst ZELF op te lossen (captchawatch: rekensommen,
-  // veldrasters en meerkeuze via de AI). Wat hij daarnaast doet: naar een
-  // veilige plek lopen waar geen monsters omheen staan, zodat je rustig de
-  // tijd hebt als hij er toch niet uitkomt. Lukt oplossen niet (of duurt hij
-  // veel te lang), dan logt de bot netjes uit. Doodgaan doen we nooit.
+  // Het quizvenster is open. De bot speelt NIET door zolang de quiz er staat
+  // (aanvallen tijdens een actieve verificatie is juist verdacht), maar hij
+  // pauzeert ook niet handmatig: zodra de quiz weg is — opgelost, mislukt of
+  // herstart — hervat de bot vanzelf met jagen. Er wordt NOOIT uitgelogd bij
+  // een quiz; de engine blijft gewoon staan tot het venster verdwijnt.
   var QUIZ_RELOCATE_MS = 15000;   // zo lang wachten voor je wegloopt van een monster
   var quizPause = null;           // { until, warnedAt }
   function quizOpenNow() {
@@ -847,23 +846,13 @@
     var qc = (config.quiz && typeof config.quiz === 'object') ? config.quiz : {};
     return qc.resolve !== false;
   }
-  // Uitloggen zonder de quiz te beantwoorden: Alt+F4 van het spel, of via het
-  // menu Afmelden. Daarna pakt autologin het op (die wacht tot het venster weg is).
-  function quizLogout(reasonText) {
-    var api = B.api;
-    log('Quiz: ' + reasonText + '. Zelf oplossen lukte niet, dus ik log uit om niets te riskeren.');
-    emit('alert', { reason: 'captcha', action: 'logout', message: 'De quiz was niet zelf op te lossen (' + reasonText + '). De bot is uitgelogd. Doe de quiz en druk in het dashboard op Start.' });
-    var klik = safeCall(function () { return api.clickModalButton('game-menu', 'logout'); }, false) ||
-               safeCall(function () { return api.clickModalButton('main-menu', 'logout'); }, false);
-    if (!klik) {
-      try {
-        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'F4', code: 'F4', altKey: true, bubbles: true }));
-        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'F4', code: 'F4', altKey: true, bubbles: true }));
-      } catch (e) { /* niets */ }
-    }
-  }
+  // Er wordt NOOIT meer uitgelogd bij een quiz. Vorige versies logden uit als
+  // de quiz te lang onbeantwoord bleef; precies dat gedrag wilde je eruit.
+  // De bot blijft nu rustig op de veilige plek staan en speelt vanzelf door
+  // zodra het venster weg is (opgelost, mislukt of herstart maakt niet uit).
   function quizPauseTick(now) {
-    // Venster weer dicht: de pauze geeft vanzelf mee (Doorgaan in het dashboard).
+    // Venster weer dicht: klaar. De hoofd-loop hervat het jagen vanzelf,
+    // want er is nooit gepauzeerd — alleen de quiz-voorbereiding liep af.
     if (!quizOpenNow()) { quizPause = null; return; }
     quizCfg();
     // Veiligheid gaat boven alles: dreigt de dood, dan stoppen we met alles.
@@ -872,24 +861,9 @@
     // Eerst: nog even niets doen, dan verplaatsen. Zo val je niet meteen op.
     if (!quizPause) quizPause = { until: now + QUIZ_RELOCATE_MS, warnedAt: 0, spot: null, checkedAt: 0 };
     if (!quizPrep) quizPrep = { at: now, spot: null, checkedAt: 0, reachedAt: 0, warnedAt: 0 };
-    // De teller voor "te lang onbeantwoord" loopt door zolang het venster open is.
-    quizPrep.at = Math.max(quizPrep.at, quizPause.startedAt || (quizPause.startedAt = now));
-    var giveUpAt = quizPrep.at + quizGiveUpOn();
-    if (now >= giveUpAt) {
-      quizLogout('te lang onbeantwoord (' + Math.round((now - quizPrep.at) / 1000) + ' s)');
-      quizPause = null;
-      return;
-    }
-    // "Resolve quizzes" uit: we proberen niet zelf. Na een korte wachtmarge
-    // (voor het geval de quiz alsnog door jou wordt beantwoord) netjes uitloggen.
-    if (!quizResolveOn()) {
-      var noResolveAt = quizPrep.at + Math.min(quizGiveUpOn(), 20000);
-      if (now >= noResolveAt) {
-        quizLogout('zelf oplossen staat uit in het dashboard');
-        quizPause = null;
-        return;
-      }
-    }
+    // Geen uitlog-teller meer: zolang het venster open blijft, houden we de
+    // veilige plek vast (quizPrep.at verlengen zodat quizActive() klopt).
+    quizPrep.at = Math.max(quizPrep.at, now - QUIZ_PREP_MS + 15000);
     if (now < quizPause.until) return;
     quizPause.until = now + QUIZ_RELOCATE_MS * 2;   // daarna elke 30 s opnieuw kijken
     var creatures = safeCall(function () { return B.api.creatures(); }, []) || [];
@@ -968,12 +942,19 @@
         else if (Date.now() - readySince > 5000) { readySince = 0; resume(); log('Verbinding is terug. De bot gaat verder.'); }
         return;
       }
-      // Anti-bot-controle: rustige plek zoeken, geen aanvallen, geen toetsen.
-      // Lukt de quiz niet, dan wordt er uitgelogd (zie quizPauseTick).
+      // Anti-bot-controle: rustige plek zoeken, geen aanvallen zolang het
+      // venster open is. Er wordt niet uitgelogd: zodra de quiz weg is
+      // (opgelost of niet) speelt de bot vanzelf door.
       if (pauseReason === 'captcha') {
-        quizCfg();
-        quizPauseTick(Date.now());
-        deathWhilePaused();
+        if (quizOpenNow()) {
+          quizCfg();
+          quizPauseTick(Date.now());
+          deathWhilePaused();
+          return;
+        }
+        quizPause = null;
+        resume();
+        log('Quiz voorbij. De bot speelt meteen verder.');
         return;
       }
       healWhilePaused();
