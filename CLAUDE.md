@@ -72,3 +72,10 @@ Meldingen gaan ook naar de telefoon via ntfy (topic in de config).
 2 De VPS mag alleen lezen van GitHub (deploy key ~minibia/.ssh/github_minibia_bot). Pushen vanaf de VPS kan niet.
 3 Bijwerken gaat automatisch: minibia-github.timer draait elke 10 minuten `AUTO=1 scripts/van-github.sh`. Alleen als het rustig is (geen monsters, geen pauze); dan bouwen + herladen bij page/extension, melding via ntfy. Bij src/ alleen een melding (herstart minibia-bot zelf). Met de hand: `bash /home/minibia/bot/scripts/van-github.sh`.
 4 Wachtwoorden, tokens, config.json, logs en chat staan nooit in Git (.gitignore laat alleen code, routes en kaarten toe).
+
+## Quiz-oplosser en chatfuncties: afblijven (29 oktober 2026)
+1 Claude komt nooit aan de quiz-oplosser en de chatfuncties van de bot.
+2 Quiz-oplosser: page/captchawatch.js, page/quizdump.js, de quizcode in page/engine.js en page/safety.js, /bridge/quizdump in src/bridge.js, config.quiz in data/config.json en de quizschakelaars in het dashboard.
+3 Chatfuncties: src/ai-reply.js, page/chat.js, chat.aiReply in data/config.json en de AI-chatschakelaars in het dashboard (sAiReply, sAiReplySafety en de code in dashboard/app.js en index.html).
+4 Niet aanpassen, niet weghalen, niet aanzetten, niet uitzetten, niet testen en niet live zetten. Ook niet als je het dashboard opnieuw indeelt of andere code bijwerkt.
+5 Raakt een taak deze onderdelen? Stop en meld het aan Wesley.
