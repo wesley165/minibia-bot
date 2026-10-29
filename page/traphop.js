@@ -168,7 +168,7 @@
     var only = (Array.isArray(cfg.lureTargets) && cfg.lureTargets.length) ? cfg.lureTargets : null;
     var tc = Object.assign({}, (ctx.config && ctx.config.targeting) || {});
     tc.keepDistance = num(cfg.lureKeep, 4);
-    tc.kiteRange = Math.max(tc.keepDistance, num(tc.kiteRange, tc.keepDistance));
+    tc.kiteRange = num(cfg.lureRange, tc.keepDistance + 1);   // verder dan dit: stap naar het monster toe
     if (only) { tc.monsters = only.map(function (n) { return { name: n, priority: 1 }; }); tc.attackAll = false; }
     var tctx = Object.assign({}, ctx, { config: Object.assign({}, ctx.config, { targeting: tc }), kiteHome: { x: cfg.below.x, y: cfg.below.y, z: cfg.below.z } });
     var t = B.targeting ? safe(function () { return B.targeting.tick(tctx); }) : null;
