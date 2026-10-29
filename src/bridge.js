@@ -13,7 +13,7 @@ const ORIGIN = 'https://minibia.com';
 const POLL_WAIT_MS = 20000;   // zo lang houdt de server een poll open
 const CMD_TIMEOUT_MS = 10000; // zo lang wachten op antwoord van de pagina
 const LOST_AFTER_MS = 45000;  // geen contact meer: verbinding weg
-const MAX_BODY = 8 * 1024 * 1024; // quizdumps bevatten base64-canvasbeelden
+const MAX_BODY = 1024 * 1024;
 
 // Vaste sleutel, zodat alleen onze extensie met de brug kan praten.
 function loadToken(root) {
@@ -26,75 +26,6 @@ function loadToken(root) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, t + '\n', { mode: 0o600 });
   return t;
-}
-
-// Quiz-AI: meerkeuzevragen van de anti-bot-controle beantwoorden via Claude.
-// Geen API-key = geen AI (de bot valt terug op uitloggen, zoals voorheen).
-const QUIZ_SYSTEM = [
-  'Je lost korte quizvragen op uit een online spel (anti-bot-verificatie).',
-  'Soms is de vraag een rekensom: reken die zelf nauwkeurig uit.',
-  'Antwoord ALLEEN met één cijfer: het indexnummer van het juiste antwoord.',
-  'Als je het écht niet weet, kies dan de meest waarschijnlijke optie; laat nooit niets onbeantwoord.',
-  'Geen toelichting, geen leestekens, geen tekst eromheen.'
-].join(' ');
-
-const QUIZ_MODELS = ['claude-haiku-4-5', 'claude-sonnet-4-5', 'claude-opus-4-5'];
-
-async function quizCallClaude(model, question, options, key) {
-  const list = options.map((o, i) => i + ': ' + o).join('\n');
-  const userText = 'Vraag: ' + question + '\n\nOpties:\n' + list;
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'x-api-key': key,
-      'anthropic-version': '2023-06-01',
-      'content-type': 'application/json'
-    },
-    body: JSON.stringify({
-      model: model,
-      max_tokens: 8,
-      system: QUIZ_SYSTEM,
-      messages: [{ role: 'user', content: userText }]
-    })
-  });
-  if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    throw new Error('Anthropic HTTP ' + res.status + ': ' + body.slice(0, 120));
-  }
-  const data = await res.json();
-  const text = (data.content || []).filter((p) => p.type === 'text').map((p) => p.text).join('').trim();
-  return text;
-}
-
-async function callQuizClaude(question, options) {
-  const key = process.env.ANTHROPIC_API_KEY || '';
-  if (!key) throw new Error('geen ANTHROPIC_API_KEY');
-  let lastErr = null;
-  for (const model of QUIZ_MODELS) {
-    let text = null;
-    try {
-      text = await quizCallClaude(model, question, options, key);
-    } catch (e) {
-      // Onbekend/geweigerd model: probeer het volgende; anders ook maar.
-      lastErr = e;
-      if (e.message && e.message.includes('HTTP 40')) continue;
-      throw e;
-    }
-    // Eerst een alleenstaand cijfer; daarna elk cijfer binnen de optierange.
-    const solo = /^\s*(\d+)\s*$/.exec(text);
-    if (solo) {
-      const idx = Number(solo[1]);
-      if (idx >= 0 && idx < options.length) return idx;
-    }
-    const any = /(\d+)/.exec(text || '');
-    if (any) {
-      const idx = Number(any[1]);
-      if (idx >= 0 && idx < options.length) return idx;
-    }
-    return -1; // antwoord onbruikbaar; nog een model helpt zelden
-  }
-  if (lastErr) throw lastErr;
-  return -1;
 }
 
 function createBridge({ root, onEvent, log }) {
@@ -269,54 +200,6 @@ function createBridge({ root, onEvent, log }) {
     if (pathname === '/bridge/secret' && req.method === 'GET') {
       seen();
       return sendJson(res, 200, { password: process.env.GAME_PASSWORD || '' });
-    }
-
-    // AI-oplosser voor de quiz: de extensie stuurt vraag + opties, wij
-    // vragen Claude en sturen het indexnummer van de gekozen optie terug.
-    // Alleen bereikbaar met de bridge-sleutel (hierboven gecontroleerd).
-    if (pathname === '/bridge/quiz' && req.method === 'POST') {
-      seen();
-      const body = await readBody(req);
-      const question = String((body && body.question) || '').slice(0, 800);
-      const options = Array.isArray(body && body.options) ? body.options.slice(0, 12).map((o) => String(o || '').slice(0, 160)) : [];
-      if (!question || options.length < 2) return sendJson(res, 200, { choice: -1 });
-      try {
-        const choice = await callQuizClaude(question, options);
-        return sendJson(res, 200, { choice: choice });
-      } catch (e) {
-        log('Quiz-AI mislukt: ' + (e && e.message ? e.message : e));
-        return sendJson(res, 200, { choice: -1 });
-      }
-    }
-
-    // Quiz-dump: de extensie stuurt een complete vastlegging van het
-    // quizvenster (HTML, structuur, canvas-beelden) naar data/quizdumps/.
-    // Zo kunnen we echte quizzes analyseren zonder ze te kunnen triggeren.
-    if (pathname === '/bridge/quizdump' && req.method === 'POST') {
-      seen();
-      try {
-        const body = await readBody(req);
-        const dir = path.join(root, 'data', 'quizdumps');
-        fs.mkdirSync(dir, { recursive: true });
-        const at = String((body && body.at) || new Date().toISOString());
-        const name = at.replace(/[:.]/g, '-');
-        const canvases = Array.isArray(body && body.canvases) ? body.canvases : [];
-        const crops = Array.isArray(body && body.crops) ? body.crops : [];
-        for (const img of canvases.concat(crops)) {
-          const m = /^data:image\/png;base64,([\s\S]+)$/.exec(String(img && img.url || ''));
-          if (!m) continue;
-          const safe = String(img.name || 'img').replace(/[^a-z0-9\-]/gi, '_').slice(0, 40);
-          fs.writeFileSync(path.join(dir, name + '-' + safe + '.png'), Buffer.from(m[1], 'base64'));
-        }
-        const meta = Object.assign({}, body);
-        delete meta.canvases; delete meta.crops;
-        fs.writeFileSync(path.join(dir, name + '.json'), JSON.stringify(meta, null, 2));
-        log('Quiz-dump opgeslagen: ' + name + ' (' + (canvases.length + crops.length) + ' beelden).');
-        return sendJson(res, 200, { ok: true });
-      } catch (e) {
-        log('Quiz-dump mislukt: ' + (e && e.message ? e.message : e));
-        return sendJson(res, 200, { ok: false });
-      }
     }
 
     if (pathname === '/bridge/poll' && req.method === 'GET') {

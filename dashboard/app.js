@@ -1244,7 +1244,6 @@
     $('sDesktop').checked = n.desktop !== false;
     $('sAutoLogin').checked = !!(S.config && S.config.autoLogin && S.config.autoLogin.enabled);
     $('sChatPause').checked = !!(S.config && S.config.chat && S.config.chat.pause);
-    renderQuizResolveToggle();
     renderAiReplyToggle();
   }
 
@@ -1308,39 +1307,6 @@
     });
   });
 
-  // Resolve quizzes aan of uit: aan = de bot probeert de quiz zelf op te
-  // lossen (standaard); uit = hij doet geen eigen pogingen en logt bij een
-  // quiz netjes uit. Direct opslaan. De schakelaar staat op twee plekken
-  // (Veiligheid en Chat); beide blijven gesynchroniseerd.
-  function renderQuizResolveToggle() {
-    var on = !(S.config && S.config.quiz && S.config.quiz.resolve === false);
-    var a = $('sQuizResolve');
-    var b = $('sQuizResolveChat');
-    var c = $('sQuizResolve2');
-    if (a) a.checked = on;
-    if (b) b.checked = on;
-    if (c) c.checked = on;
-  }
-
-  function onQuizResolveToggle(e) {
-    var on = e.target.checked;
-    var msgId = e.target.id === 'sQuizResolveChat' ? 'chatMsg' : 'safetyMsg';
-    saveConfigPart(msgId, 'safetySave', function (cfg) {
-      cfg.quiz = Object.assign({ giveUpMs: 90000 }, cfg.quiz || {}, { resolve: on });
-    }).then(function (ok) {
-      if (ok) {
-        if (!S.config.quiz) S.config.quiz = {};
-        S.config.quiz.resolve = !!on;
-      } else {
-        e.target.checked = !on;
-      }
-      renderQuizResolveToggle();
-    });
-  }
-
-  if ($('sQuizResolve')) $('sQuizResolve').addEventListener('change', onQuizResolveToggle);
-  if ($('sQuizResolveChat')) $('sQuizResolveChat').addEventListener('change', onQuizResolveToggle);
-  if ($('sQuizResolve2')) $('sQuizResolve2').addEventListener('change', onQuizResolveToggle);
 
   $('sOnPlayer').addEventListener('change', function (e) { S.safety.safety.onPlayer = e.target.value; markDirty('safetyMsg'); });
   $('sIgnore').addEventListener('input', function (e) {

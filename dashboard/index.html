@@ -404,15 +404,7 @@
           <div class="settings">
             <label class="check"><input id="sChatPause" type="checkbox"> Pauzeren bij een privébericht (uit: de bot negeert chat en huntt door)</label>
             <label class="check"><input id="sAiReplySafety" type="checkbox"> AI-chat aan/uit — AI auto-reply op GM/CM/Tutor-berichten (Claude)</label>
-            <label class="check"><input id="sQuizResolve" type="checkbox"> Quiz oplossen aan/uit — de bot loopt bij een quiz naar een veilige plek zonder monsters en probeert hem zelf op te lossen (rekensommen, veldrasters en meerkeuze via Claude); lukt het niet: hij blijft staan en speelt vanzelf door zodra de quiz weg is (nooit uitloggen)</label>
             <label class="check"><input id="sAutoLogin" type="checkbox"> Automatisch inloggen als het spel is uitgelogd (niet als de bot op Stop staat)</label>
-          </div>
-        </fieldset>
-        <fieldset class="set-group">
-          <legend>Quiz</legend>
-          <div class="settings">
-            <label class="check"><input id="sQuizResolve2" type="checkbox"> Quiz oplossen aan/uit — de bot loopt bij een quiz naar een veilige plek zonder monsters en probeert hem zelf op te lossen; lukt het niet of staat dit uit: hij speelt gewoon door zodra de quiz weg is (nooit uitloggen)</label>
-            <p class="muted small" style="margin: 0.25rem 0 0 1.5rem;">Zelfde schakelaar als hierboven bij "Chat en inloggen" en op het tabblad Chat.</p>
           </div>
         </fieldset>
 
@@ -439,11 +431,6 @@
             <span id="aiReplyState" class="muted small"> (uit)</span>
           </label>
           <p class="muted small" style="margin: 0.25rem 0 0 1.5rem;">Staat dit aan, dan antwoordt Claude na ~2 seconden automatisch op berichten van GM/CM/Tutor. Standaard uit.</p>
-          <label class="check">
-            <input id="sQuizResolveChat" type="checkbox">
-            Quiz oplossen aan/uit — de bot probeert de quiz zelf op te lossen; lukt het niet: doorspelen zodra de quiz weg is (nooit uitloggen)
-          </label>
-          <p class="muted small" style="margin: 0.25rem 0 0 1.5rem;">Dezelfde schakelaar als bij Veiligheid → Chat en inloggen. Staat hij uit, dan doet de bot géén eigen pogingen en logt hij bij een quiz netjes uit (jij hebt ~20 s om zelf te antwoorden).</p>
         </div>
         <ul id="chatList" class="chat-list"></ul>
         <p id="chatEmpty" class="muted">Nog geen berichten.</p>
@@ -530,4 +517,4 @@
 </body>
 </html>
 
-<!-- build: quiz+ai-chat+Bijwerken bundle 202610282213 -->
+

@@ -226,12 +226,6 @@
     mode = 'idle';
     wasFighting = false;
     cancelWalk();
-    if (pauseReason === 'captcha') {
-      // Zolang het venster open is, blijft de engine de veilige plek bewaken.
-      quizCfg();
-      if (!quizPrep) quizPrep = { at: Date.now(), spot: null, checkedAt: 0, reachedAt: 0, warnedAt: 0 };
-      quizPrep.at = Date.now();
-    }
     log('Bot gepauzeerd: ' + pauseReason + '.');
     return result();
   }
@@ -338,6 +332,38 @@
           return { ok: true, started: true };
         }
         case 'kaartProbeResult': return B.kaartProbeResult || { none: true };
+        // Minimap-stuk ophalen: chunk-sleutel voor een positie + de pixels (base64), voor kaarten zonder verkennen.
+        case 'kaartChunk': {
+          B.kaartChunkResult = { busy: true };
+          (function () {
+            var g = window.gameClient, dbw = g && g.database, a = args || {};
+            var res = { size: dbw && dbw.__minimapChunkSize };
+            try { res.idSrc = String(dbw.getChunkIdentifier).slice(0, 400); } catch (e) { /* niets */ }
+            try { res.pixelSrc = String(dbw.getMinimapPixel).slice(0, 400); } catch (e) { /* niets */ }
+            var key = a.key;
+            if (!key && a.x != null) {
+              try { key = dbw.getChunkIdentifier({ x: Number(a.x), y: Number(a.y), z: Number(a.z) }); } catch (e) { res.idErr = String(e.message || e); }
+            }
+            res.key = key;
+            var idb = null;
+            Object.keys(dbw || {}).forEach(function (k) { try { if (dbw[k] instanceof IDBDatabase) idb = dbw[k]; } catch (e) { /* niets */ } });
+            if (!idb || !key) { B.kaartChunkResult = res; return; }
+            var tx = idb.transaction('minimap', 'readonly');
+            var rq = tx.objectStore('minimap').get(String(key));
+            rq.onsuccess = function () {
+              var v = rq.result, d = v && v.data && v.data.data;
+              if (d) {
+                var bin = '', u = new Uint8Array(d.buffer || d);
+                for (var i = 0; i < u.length; i += 8192) bin += String.fromCharCode.apply(null, u.subarray(i, i + 8192));
+                res.b64 = btoa(bin);
+              } else res.missing = true;
+              B.kaartChunkResult = res;
+            };
+            rq.onerror = function () { res.error = 'get'; B.kaartChunkResult = res; };
+          })();
+          return { ok: true, started: true };
+        }
+        case 'kaartChunkResult': return B.kaartChunkResult || { none: true };
         case 'start': return start();
         case 'stop': return stop();
         case 'pause': return pause((args && args.reason) || 'handmatig');
@@ -655,10 +681,8 @@
   // als de bot stilstaat (bijv. om een speler in de buurt).
   // Niet bij death of disconnect: dan valt er niets te healen.
   function healWhilePaused() {
-    // Bij de anti-bot-controle mag de bot niets doen wat opvalt: geen toetsen,
-    // geen runes, alleen rustig staan. Healing wordt overgenomen door quizPauseTick.
-    if (!B.healing || pauseReason === 'death' || pauseReason === 'disconnect') return;
-    if (pauseReason === 'captcha') return;
+    // Tijdens de anti-bot-controle doet de bot helemaal niets.
+    if (!B.healing || pauseReason === 'death' || pauseReason === 'disconnect' || pauseReason === 'captcha') return;
     var api = B.api;
     if (!safeCall(function () { return api.ready(); }, false)) return;
     var player = safeCall(function () { return api.player(); }, null);
@@ -668,227 +692,49 @@
     } catch (e) { /* volgende tick weer */ }
   }
 
-  // Quiz komt eraan (aankondiging in de chat, ~10 s vooraf) of het venster staat
-  // open: niet meer aanvallen en naar een veilige plek lopen waar geen monsters
-  // om je heen staan. Veilig = vrij van levende monsters, begaanbaar, geen gat
-  // of trap, en zo dicht mogelijk bij de jachtroute.
-  // De waarden kunnen via config.quiz (zie het dashboard) worden aangepast;
-  // quizCfg() leest ze per keer dat er iets gezocht wordt, dus een nieuwe
-  // instelling geldt meteen zonder herstart.
-  var QUIZ_PREP_MS = 25000, QUIZ_CLEAR = 7, QUIZ_REACH = 30, QUIZ_ROUTE_NEAR = 12;
-  var QUIZ_FALLBACK_RADIUS = 7;   // eigen straal bij het zoeken van een vrije plek
-  var QUIZ_WANDER_MS = 90000;     // daarna ook wat verder van de route zoeken
-  function numOr(v, d) { var n = Number(v); return isFinite(n) ? n : d; }
-  function quizCfg() {
-    var qc = (config.quiz && typeof config.quiz === 'object') ? config.quiz : {};
-    QUIZ_PREP_MS = Math.max(8000, numOr(qc.prepMs, 25000));
-    QUIZ_CLEAR = Math.max(3, numOr(qc.clearDistance, 7));       // geen levend monster binnen zoveel tegels
-    QUIZ_REACH = Math.max(8, numOr(qc.reachDistance, 30));      // hoogste zoekstraal rond de speler
-    QUIZ_ROUTE_NEAR = Math.max(6, numOr(qc.routeNear, 12));     // maximaal zoveel tegels van de route af
-  }
-  var quizPrep = null;     // { at, spot, checkedAt, reachedAt, warnedAt }
+  // Quiz komt eraan (aankondiging in de chat, ~10 s vooraf): niet meer aanvallen
+  // en naar het dichtstbijzijnde routepunt zonder monsters in de buurt lopen.
+  // Gaat het venster open, dan pauzeert safety de bot zoals altijd.
+  var QUIZ_PREP_MS = 15000;
+  var QUIZ_CLEAR = 6;      // geen monster binnen zoveel tegels van de plek
+  var QUIZ_REACH = 15;     // alleen plekken binnen zoveel tegels
+  var quizPrep = null;     // { at, spot, checkedAt }
   function quizComing() {
     var now = Date.now();
-    quizCfg();
-    // Verleng bij herhaalde signalen (aankondiging én open venster), anders
-    // stopt de voorbereiding halverwege een lange quiz.
-    if (quizPrep && now - quizPrep.at < QUIZ_PREP_MS) { quizPrep.at = now; return { ok: true }; }
-    quizPrep = { at: now, spot: null, checkedAt: 0, reachedAt: 0, warnedAt: 0 };
-    log('Quiz komt eraan: ik stop met aanvallen en loop naar een plek zonder monsters.');
+    if (quizPrep && now - quizPrep.at < QUIZ_PREP_MS) return { ok: true };
+    quizPrep = { at: now, spot: null, checkedAt: 0 };
+    log('Quiz komt eraan: ik stop met aanvallen en zoek een plek zonder monsters.');
     return { ok: true };
   }
   function quizActive(now) { return !!quizPrep && now - quizPrep.at < QUIZ_PREP_MS; }
-  function quizMonsters(player, creatures) {
-    return creatures.filter(function (c) { return c && c.type === 1 && c.hpPct > 0 && c.z === player.z; });
-  }
-  // Minste afstand van (x,y) tot een waypoint van de route op dezelfde verdieping.
-  function quizRouteDist(rt, x, y, z) {
-    var best = Infinity;
-    ((rt && rt.waypoints) || []).forEach(function (w) {
-      if (!w || w.z !== z) return;
-      var d = Math.max(Math.abs(w.x - x), Math.abs(w.y - y));
-      if (d < best) best = d;
-    });
-    return best;
-  }
-  // Vrijstaande veilige plek zoeken: begaanbaar, geen gat of trap, geen levend
-  // monster binnen QUIZ_CLEAR tegels, en niet verder dan maxR van waar we staan.
-  // Vanuit het midden word je steeds duurder beoordeeld naarmate je verder van
-  // de route af wijkt, zodat de bot dicht bij de jachtroute blijft staan.
-  function quizFindSpot(player, creatures, rt, maxR) {
-    var api = B.api;
-    if (!api || typeof api.tileFree !== 'function' || typeof api.dangerTile !== 'function') return null;
-    var mons = quizMonsters(player, creatures);
-    var nearRoute = Date.now() - (quizPrep ? quizPrep.at : 0) < QUIZ_WANDER_MS;
-    var best = null, bestScore = Infinity;
-    for (var dx = -maxR; dx <= maxR; dx++) {
-      for (var dy = -maxR; dy <= maxR; dy++) {
-        var x = player.x + dx, y = player.y + dy;
-        var d = Math.max(Math.abs(dx), Math.abs(dy));
-        // De eigen tegel mag ook: soms is hier al niemand.
-        var mDist = Infinity;
-        for (var i = 0; i < mons.length; i++) {
-          var md = Math.max(Math.abs(x - mons[i].x), Math.abs(y - mons[i].y));
-          if (md < mDist) mDist = md;
-        }
-        if (mDist < QUIZ_CLEAR) continue;
-        var rd = quizRouteDist(rt, x, y, player.z);
-        if (nearRoute && rd > QUIZ_ROUTE_NEAR) continue;
-        var ok = safeCall(function () { return api.tileFree(x, y, player.z) && !api.dangerTile(x, y, player.z); }, false);
-        if (!ok) continue;
-        // Score: eerst vrij van de route, dan dichtbij ons, dan zo ver mogelijk
-        // van monsters af (op 10 tegels is het goed genoeg).
-        var score = rd * 4 + d - Math.min(mDist, 10);
-        if (d === 0) score -= 2;   // blijven staan is gratis, als het veilig is
-        if (score < bestScore) { bestScore = score; best = { x: x, y: y, z: player.z }; }
+  function quizSafeSpot(player, creatures, rt) {
+    var mons = creatures.filter(function (c) { return c.type === 1 && c.hpPct > 0 && c.z === player.z; });
+    var spots = ((config.quiz && config.quiz.safeSpots) || []).slice();
+    ((rt && rt.waypoints) || []).forEach(function (w) { if (!w.type || w.type === 'walk' || w.type === 'stand') spots.push(w); });
+    var best = null, bestD = Infinity;
+    spots.forEach(function (s) {
+      if (s.z !== player.z) return;
+      var d = Math.max(Math.abs(s.x - player.x), Math.abs(s.y - player.y));
+      if (d > QUIZ_REACH || d >= bestD) return;
+      for (var i = 0; i < mons.length; i++) {
+        if (Math.max(Math.abs(s.x - mons[i].x), Math.abs(s.y - mons[i].y)) < QUIZ_CLEAR) return;
       }
-    }
+      best = s; bestD = d;
+    });
     return best;
   }
   function quizPrepTick(player, creatures, rt, now) {
     if (player.targetId) safeCall(function () { B.api.clearTarget(); });
-    var maxR = Math.min(QUIZ_REACH, QUIZ_FALLBACK_RADIUS + (now - quizPrep.at > 8000 ? 6 : 0));
     if (!quizPrep.spot || now - quizPrep.checkedAt > 2000) {
       quizPrep.checkedAt = now;
-      // Overgebleven monster op de oude plek? Dan opnieuw zoeken.
-      var mons = quizMonsters(player, creatures);
-      var s = quizPrep.spot;
-      if (s) {
-        for (var i = 0; i < mons.length; i++) {
-          if (Math.max(Math.abs(s.x - mons[i].x), Math.abs(s.y - mons[i].y)) < QUIZ_CLEAR) { s = null; break; }
-        }
-      }
-      if (!s) s = quizFindSpot(player, creatures, rt, maxR);
-      if (s && (!quizPrep.spot || s.x !== quizPrep.spot.x || s.y !== quizPrep.spot.y)) {
-        log('Quiz: ik loop naar ' + s.x + ',' + s.y + ',' + s.z + ' (plek zonder monsters).');
-        quizPrep.reachedAt = 0;
-      }
+      var s = quizSafeSpot(player, creatures, rt);
+      if (s && (!quizPrep.spot || s.x !== quizPrep.spot.x || s.y !== quizPrep.spot.y)) log('Quiz: ik loop naar ' + s.x + ',' + s.y + ',' + s.z + '.');
       quizPrep.spot = s;
     }
     var spot = quizPrep.spot;
-    if (!spot) {
-      // Geen veilige plek gevonden: wel melden, maximaal één keer per 30 s.
-      if (!quizPrep.warnedAt || now - quizPrep.warnedAt > 30000) {
-        quizPrep.warnedAt = now;
-        log('Quiz: ik vind geen plek zonder monsters in de buurt. Ik blijf staan en vecht niet meer.');
-      }
-      cancelWalk();
-      return;
-    }
-    if (spot.x === player.x && spot.y === player.y && spot.z === player.z) {
-      cancelWalk();
-      if (!quizPrep.reachedAt) { quizPrep.reachedAt = now; log('Quiz: ik sta veilig. Ik val niets meer aan.'); }
-      return;
-    }
-    // Lopen naar de veilige plek lukt niet (bijv. een muur of fields ertussen)?
-    // Na 20 seconden opgeven: blijven staan. Veiligheid boven alles.
-    if (!quizPrep.walkSince) quizPrep.walkSince = now;
-    if (now - quizPrep.walkSince > 20000) {
-      cancelWalk();
-      if (!quizPrep.warnedAt || now - quizPrep.warnedAt > 30000) {
-        quizPrep.warnedAt = now;
-        log('Quiz: ' + spot.x + ',' + spot.y + ' is niet te bereiken. Ik blijf hier staan.');
-      }
-      quizPrep.spot = null;
-      return;
-    }
+    if (!spot) return;   // geen rustige plek binnen bereik: blijven staan en healen
+    if (spot.x === player.x && spot.y === player.y) { cancelWalk(); return; }
     safeCall(function () { B.api.walkTo(spot.x, spot.y, spot.z); });
-  }
-
-  // AI-antwoord op een quizvraag: captchawatch stuurt de vraag + opties naar
-  // Claude (via de bridge-server) en krijgt het indexnummer van de gekozen
-  // optie terug. Zonder bridge of bij een fout: geen keuze (dan blijft de
-  // trySolve-lus van captchawatch het proberen, en uiteindelijk beslist de
-  // engine over uitloggen). De daadwerkelijke netwerkcall zit in
-  // bridge-client.js (commando 'quizAnswer').
-  function quizAskAi(question, options, cb) {
-    var done = false;
-    function once(idx) { if (!done) { done = true; try { cb(idx); } catch (e) { /* niets */ } } }
-    if (!B.__bridge || typeof B.__bridge.command !== 'function') { once(null); return; }
-    var payload = {
-      question: String(question || '').slice(0, 600),
-      options: (options || []).slice(0, 12).map(function (o) { return String(o || '').slice(0, 120); })
-    };
-    var timer = setTimeout(function () { once(null); }, 30000);
-    Promise.resolve(B.__bridge.command('quizAnswer', payload)).then(function (res) {
-      clearTimeout(timer);
-      var idx = res && res.choice;
-      if (typeof idx === 'number' && idx >= 0 && idx < payload.options.length) {
-        log('Quiz: Claude antwoordde "' + payload.options[idx] + '".');
-        once(idx);
-      } else {
-        once(null);
-      }
-    }).catch(function () { clearTimeout(timer); once(null); });
-  }
-
-  // Het quizvenster is open. De bot speelt NIET door zolang de quiz er staat
-  // (aanvallen tijdens een actieve verificatie is juist verdacht), maar hij
-  // pauzeert ook niet handmatig: zodra de quiz weg is — opgelost, mislukt of
-  // herstart — hervat de bot vanzelf met jagen. Er wordt NOOIT uitgelogd bij
-  // een quiz; de engine blijft gewoon staan tot het venster verdwijnt.
-  var QUIZ_RELOCATE_MS = 15000;   // zo lang wachten voor je wegloopt van een monster
-  var quizPause = null;           // { until, warnedAt }
-  function quizOpenNow() {
-    if (B.captchawatch && typeof B.captchawatch.quizVisible === 'function') {
-      try { return !!B.captchawatch.quizVisible(); } catch (e) { return false; }
-    }
-    return safeCall(function () { return B.api.modalVisible('captcha-modal'); }, false);
-  }
-  function quizGiveUpOn() {
-    var qc = (config.quiz && typeof config.quiz === 'object') ? config.quiz : {};
-    var ms = numOr(qc.giveUpMs, 90000);
-    return Math.max(30000, Math.min(600000, ms));
-  }
-  // "Resolve quizzes" in het dashboard: config.quiz.resolve (standaard aan).
-  // Uit = de bot doet geen eigen pogingen; captchawatch lost dan niet zelf op.
-  function quizResolveOn() {
-    var qc = (config.quiz && typeof config.quiz === 'object') ? config.quiz : {};
-    return qc.resolve !== false;
-  }
-  // Er wordt NOOIT meer uitgelogd bij een quiz. Vorige versies logden uit als
-  // de quiz te lang onbeantwoord bleef; precies dat gedrag wilde je eruit.
-  // De bot blijft nu rustig op de veilige plek staan en speelt vanzelf door
-  // zodra het venster weg is (opgelost, mislukt of herstart maakt niet uit).
-  function quizPauseTick(now) {
-    // Venster weer dicht: klaar. De hoofd-loop hervat het jagen vanzelf,
-    // want er is nooit gepauzeerd — alleen de quiz-voorbereiding liep af.
-    if (!quizOpenNow()) { quizPause = null; return; }
-    quizCfg();
-    // Veiligheid gaat boven alles: dreigt de dood, dan stoppen we met alles.
-    var p = safeCall(function () { return B.api.player(); }, null);
-    if (p && (p.isDead || p.hpPct <= 8)) { quizPause = null; return; }
-    // Eerst: nog even niets doen, dan verplaatsen. Zo val je niet meteen op.
-    if (!quizPause) quizPause = { until: now + QUIZ_RELOCATE_MS, warnedAt: 0, spot: null, checkedAt: 0 };
-    if (!quizPrep) quizPrep = { at: now, spot: null, checkedAt: 0, reachedAt: 0, warnedAt: 0 };
-    // Geen uitlog-teller meer: zolang het venster open blijft, houden we de
-    // veilige plek vast (quizPrep.at verlengen zodat quizActive() klopt).
-    quizPrep.at = Math.max(quizPrep.at, now - QUIZ_PREP_MS + 15000);
-    if (now < quizPause.until) return;
-    quizPause.until = now + QUIZ_RELOCATE_MS * 2;   // daarna elke 30 s opnieuw kijken
-    var creatures = safeCall(function () { return B.api.creatures(); }, []) || [];
-    var rt = phase === 'hunt' || !phaseRoute ? route : phaseRoute;
-    // Zelfde plek aanhouden als hij nog veilig is, anders opnieuw zoeken.
-    var s = quizPause.spot;
-    if (s) {
-      var mons = quizMonsters(p, creatures);
-      for (var i = 0; i < mons.length; i++) {
-        if (Math.max(Math.abs(s.x - mons[i].x), Math.abs(s.y - mons[i].y)) < QUIZ_CLEAR) { s = null; break; }
-      }
-    }
-    if (!s) s = quizFindSpot(p, creatures, rt, Math.min(QUIZ_REACH, QUIZ_FALLBACK_RADIUS));
-    quizPause.spot = s;
-    if (!s) {
-      if (!quizPause.warnedAt || now - quizPause.warnedAt > 60000) {
-        quizPause.warnedAt = now;
-        log('Quiz: hier is geen plek zonder monsters. Ik blijf staan en doe niets.');
-      }
-      return;
-    }
-    if (s.x === p.x && s.y === p.y) return;   // staat al veilig
-    log('Quiz: ik loop naar ' + s.x + ',' + s.y + ',' + s.z + ' (plek zonder monsters).');
-    safeCall(function () { B.api.clearTarget(); });
-    safeCall(function () { B.api.walkTo(s.x, s.y, s.z); });
   }
 
   // Dood gegaan tijdens een pauze: dat ook melden (één keer per pauze).
@@ -940,21 +786,6 @@
         if (!ok) readySince = 0;
         else if (!readySince) readySince = Date.now();
         else if (Date.now() - readySince > 5000) { readySince = 0; resume(); log('Verbinding is terug. De bot gaat verder.'); }
-        return;
-      }
-      // Anti-bot-controle: rustige plek zoeken, geen aanvallen zolang het
-      // venster open is. Er wordt niet uitgelogd: zodra de quiz weg is
-      // (opgelost of niet) speelt de bot vanzelf door.
-      if (pauseReason === 'captcha') {
-        if (quizOpenNow()) {
-          quizCfg();
-          quizPauseTick(Date.now());
-          deathWhilePaused();
-          return;
-        }
-        quizPause = null;
-        resume();
-        log('Quiz voorbij. De bot speelt meteen verder.');
         return;
       }
       healWhilePaused();
@@ -1285,14 +1116,6 @@
       // Voorraad in de backpacks: life rings (3052) en UH-runes (3160, telt charges).
       supplies: player ? safeCall(function () { return { lifeRings: api.countItem(3052), uh: api.countItem(3160), manaFluids: api.countFluid(2874, 7) }; }, null) : null,
       phase: phase,
-      // Anti-bot-controle: waar is de bot mee bezig (veilige plek, uitloggen)?
-      quiz: {
-        open: safeCall(function () { return B.captchawatch ? B.captchawatch.quizVisible() : false; }, false),
-        prep: quizActive(Date.now()),
-        spot: (quizPrep && quizPrep.spot) || (quizPause && quizPause.spot) || null,
-        giveUpMs: quizGiveUpOn(),
-        since: quizPrep ? quizPrep.at : null
-      },
       stuck: B.stuck ? safeCall(function () { return B.stuck.info(); }, null) : null,
       time: now
     };
@@ -1344,22 +1167,6 @@
     getState: function () { return state; },
     getConfig: function () { return config; },
     quizComing: quizComing,
-    // Door captchawatch aangeroepen zodra de quiz beantwoord/gesloten is:
-    // verleng de voorbereiding een beetje en laat de pauze-vlag vallen,
-    // zodat de engine niet per ongeluk uitlogt ná een geslaagde quiz.
-    quizCleared: function () {
-      quizPause = null;
-      if (quizPrep) quizPrep.at = Date.now() - QUIZ_PREP_MS + 8000;
-    },
-    // Voor captchawatch: vraag + opties naar de AI-sturen (één callback).
-    quizAskAi: quizAskAi,
-    // Voor captchawatch: "Resolve quizzes" aan/uit vanuit het dashboard.
-    quizResolveOn: quizResolveOn,
-    // Voor captchawatch en het dashboard: staat het quizvenster nu open?
-    quizOpen: function () { return safeCall(function () { return B.captchawatch ? !!B.captchawatch.quizVisible() : false; }, false); },
-    quizInfo: function () {
-      return { prep: quizActive(Date.now()), spot: (quizPrep && quizPrep.spot) || null, since: quizPrep ? quizPrep.at : 0 };
-    },
     // Hoort de bot aan te staan? (voor automatisch inloggen)
     wantsActive: function () { return state === 'running' || (state === 'paused' && pauseReason === 'disconnect') || !!pendingResume; },
     log: log

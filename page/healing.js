@@ -16,10 +16,22 @@
   var lastSpeed = 0;
   var hasteCast = null;   // { at, speed } om te zien of de cast werkte
   var hasteMisses = 0;    // casts zonder hogere snelheid achter elkaar
+  var hasteCreatures = [];  // monsters van deze tick (voor nearNames)
   function hasteFits(rule, p, now, state) {
     // Alleen als de bot speelt, niet tijdens een pauze.
     if (state && state !== 'running') return false;
     if (p.inPz) return false;
+    // nearNames: alleen haste als zo'n monster binnen nearRange tegels is (bijv. achtervolgd door Giant Spiders).
+    if (Array.isArray(rule.nearNames) && rule.nearNames.length) {
+      var want = rule.nearNames.map(function (n) { return String(n).toLowerCase(); });
+      var rng = Number(rule.nearRange) || 6, near = false;
+      (hasteCreatures || []).forEach(function (c) {
+        if (!c || c.type !== 1 || !(c.hpPct > 0) || c.z !== p.z) return;
+        if (want.indexOf(String(c.name).toLowerCase()) < 0) return;
+        if (Math.max(Math.abs(c.x - p.x), Math.abs(c.y - p.y)) <= rng) near = true;
+      });
+      if (!near) return false;
+    }
     var speed = Number(p.speed) || 0;
     // Paralyze: snelheid ver onder normaal. Dan meteen haste, ook als de
     // haste nog zou lopen en ook onder de mana-drempel (alleen de mana-kosten tellen).
@@ -111,7 +123,7 @@
 
   function fits(rule, p, ctx) {
     if (!itemOk(rule)) return false;
-    if (rule.type === 'haste') return hasteFits(rule, p, ctx.now, ctx.state);
+    if (rule.type === 'haste') { hasteCreatures = ctx.creatures || []; return hasteFits(rule, p, ctx.now, ctx.state); }
     if (rule.type === 'attackSpell') {
       // Aanvalsspell (bijv. exori): genoeg mana plus reserve, en monsters naast je.
       var cost = Number(rule.manaCost) || 0;

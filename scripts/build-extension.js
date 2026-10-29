@@ -10,13 +10,13 @@ const path = require('path');
 const { loadToken } = require('../src/bridge');
 
 const ROOT = path.join(__dirname, '..');
-const PAGE_FILES = ['timer.js', 'api.js', 'targeting.js', 'kite.js', 'gearswap.js', 'pickup.js', 'cavebot.js', 'stuck.js', 'healing.js', 'safety.js', 'recorder.js', 'depot.js', 'engine.js', 'chat.js', 'automove.js', 'captchawatch.js', 'quizdump.js', 'bags.js', 'loot.js', 'autologin.js', 'bridge-client.js'];
+const PAGE_FILES = ['timer.js', 'api.js', 'targeting.js', 'kite.js', 'gearswap.js', 'pickup.js', 'cavebot.js', 'stuck.js', 'healing.js', 'safety.js', 'recorder.js', 'depot.js', 'engine.js', 'chat.js', 'automove.js', 'captchawatch.js', 'bags.js', 'loot.js', 'autologin.js', 'bridge-client.js'];
 const port = Number(process.env.PORT) || 3100;
 
 const token = loadToken(ROOT);
 const parts = PAGE_FILES.map((f) => fs.readFileSync(path.join(ROOT, 'page', f), 'utf8'));
 let code = parts.join(';\n');
-code = code.replace(/'__WJ_URL__'/g, JSON.stringify('http://127.0.0.1:' + port)).replace(/'__WJ_TOKEN__'/g, JSON.stringify(token));
+code = code.replace("'__WJ_URL__'", JSON.stringify('http://127.0.0.1:' + port)).replace("'__WJ_TOKEN__'", JSON.stringify(token));
 
 // Versie = bouwmoment, zodat je in de status ziet welke code in Chrome draait.
 const d = new Date();
