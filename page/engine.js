@@ -914,6 +914,11 @@
       // Refillen: alleen healen, niets anders.
       if (phase === 'refill') { mode = 'action'; startRefill(); return; }
 
+      // Rondjes om een vaste spot (config.circle) zolang er een Giant Spider achter je aan zit.
+      if (B.circle && config.circle && config.circle.enabled && (phase === 'hunt' || phase === 'toHunt')) {
+        var cr = safeCall(function () { return B.circle.tick(ctx); }, null);
+        if (cr) { seek = null; mode = cr.mode; return; }
+      }
       // Trap-hoppen (config.trapHop): af, één schot, op, kort wachten. Neemt targeting en route over.
       if (B.traphop && trapHopOn() && (phase === 'hunt' || phase === 'toHunt')) {
         seek = null;

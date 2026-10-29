@@ -10,7 +10,7 @@ const path = require('path');
 const { loadToken } = require('../src/bridge');
 
 const ROOT = path.join(__dirname, '..');
-const PAGE_FILES = ['timer.js', 'api.js', 'targeting.js', 'kite.js', 'gearswap.js', 'pickup.js', 'cavebot.js', 'stuck.js', 'healing.js', 'safety.js', 'recorder.js', 'depot.js', 'traphop.js', 'engine.js', 'chat.js', 'automove.js', 'captchawatch.js', 'bags.js', 'loot.js', 'autologin.js', 'bridge-client.js'];
+const PAGE_FILES = ['timer.js', 'api.js', 'targeting.js', 'kite.js', 'gearswap.js', 'pickup.js', 'cavebot.js', 'stuck.js', 'healing.js', 'safety.js', 'recorder.js', 'depot.js', 'traphop.js', 'circle.js', 'engine.js', 'chat.js', 'automove.js', 'captchawatch.js', 'bags.js', 'loot.js', 'autologin.js', 'bridge-client.js'];
 const port = Number(process.env.PORT) || 3100;
 
 const token = loadToken(ROOT);
