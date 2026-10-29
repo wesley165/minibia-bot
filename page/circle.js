@@ -94,6 +94,8 @@
     }
     // Pas door naar het volgende punt als we er precies op staan (geen hoeken afsnijden).
     if (cheb(at(idx), p) === 0) idx += dir;
+    // Staat er iets op het punt (monster, speler) en zijn we er vlakbij? Dan door naar het volgende.
+    else if (cheb(at(idx), p) === 1 && B.api.tileFree && !B.api.tileFree(at(idx).x, at(idx).y, p.z)) idx += dir;
     idx = ((idx % n) + n) % n;
     stepToward(p, at(idx), lure, now);
     why = 'rondje ' + (dir > 0 ? 'met de klok mee' : 'tegen de klok in');
