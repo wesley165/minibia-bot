@@ -110,6 +110,14 @@
     var dot = dx * flee.dx + dy * flee.dy;
     return dot > 0 ? 300 : dot < 0 ? -1500 : -200;
   }
+  // Lokken: bij het weglopen liefst richting deze plek (bijv. de trap bij de tempel).
+  var home = null;
+  function homeBonus(x, y, me) {
+    if (!home || home.z !== me.z) return 0;
+    var now = Math.max(Math.abs(me.x - home.x), Math.abs(me.y - home.y));
+    var then = Math.max(Math.abs(x - home.x), Math.abs(y - home.y));
+    return (now - then) * 350;
+  }
   function noteFlee(step) {
     var now = Date.now();
     if (flee && now <= flee.until && step.dx * flee.dx + step.dy * flee.dy >= 0) {
@@ -139,7 +147,7 @@
           if (!(t < hereT) || m < keep) continue;       // dichterbij, maar niet te dichtbij
         } else if (!(m > hereMin)) continue;            // alleen weg als het beter wordt
         var score = Math.min(m, keep) * 1000 - (dx && dy ? DIAG : 0) - t - crowd(x, y, me.z, list) * 150 + cameFrom(x, y, me.z, list)
-          + (wantCloser ? 0 : fleeBonus(dx, dy))
+          + (wantCloser ? 0 : fleeBonus(dx, dy) + homeBonus(x, y, me))
           - (inCone(x, y, me.z, list) ? 400 : 0);
         if (!best || score > best.score) best = { dx: dx, dy: dy, score: score };
       }
@@ -170,7 +178,7 @@
           var score = Math.min(m, keep) * 1000 - n.d * 10 - (n.first.dx && n.first.dy ? DIAG : 0) - n.diag * (DIAG / 3)
             - crowd(n.x, n.y, me.z, list) * 150
             - (inCone(n.x, n.y, me.z, list) ? 400 : 0)
-            + fleeBonus(n.first.dx, n.first.dy)
+            + fleeBonus(n.first.dx, n.first.dy) + homeBonus(me.x + n.first.dx, me.y + n.first.dy, me)
             + cameFrom(n.x, n.y, me.z, list) + cameFrom(me.x + n.first.dx, me.y + n.first.dy, me.z, list) / 2
             + Math.min(minDist(me.x + n.first.dx, me.y + n.first.dy, me.z, list), keep) * 60;   // eerste stap liefst al weg
           // Beter = verder van het dichtstbijzijnde monster, of even ver maar rustiger (minder drukte).
@@ -257,6 +265,7 @@
   function tick(ctx, targetId) {
     try {
       var cfg = (ctx.config && ctx.config.targeting) || {};
+      home = ctx.kiteHome || null;
       var keep = num(cfg.keepDistance, 0);
       extra = {};
       var ex = cfg.extraDistance || {};

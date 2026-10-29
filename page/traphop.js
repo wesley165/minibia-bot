@@ -67,6 +67,7 @@
   }
 
 
+  function safe(fn) { try { return fn(); } catch (e) { return null; } }
   function cheb(a, b) { return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y)); }
 
   // Eén stap richting punt q (met toetsen, zodat het doel blijft staan en hij doorschiet).
@@ -106,7 +107,8 @@
   }
 
   function nearestMonster(ctx, p, cfg, r) {
-    var list = monstersBelow(ctx, p, Object.assign({}, cfg, { range: r }));
+    var only = (Array.isArray(cfg.lureTargets) ? cfg.lureTargets : []).map(lower);
+    var list = monstersBelow(ctx, p, Object.assign({}, cfg, { range: r })).filter(function (c) { return !only.length || only.indexOf(lower(c.name)) >= 0; });
     var best = null, bd = Infinity;
     list.forEach(function (c) { var d = cheb(c, p) + (c.los ? 0 : 3); if (d < bd) { bd = d; best = c; } });
     return best;
@@ -144,41 +146,38 @@
         }
       }
     }
-    // Terug naar de trap, onderweg aanvallen.
-    var curId = p.targetId;
-    var curAlive = curId != null && (ctx.creatures || []).some(function (c) { return c.id === curId && c.hpPct > 0; });
-    if (m && !curAlive && now - (lure.attackAt || 0) > 400) { lure.attackAt = now; B.api.attack(m.id); }
+    // Terug naar de trap: gewoon hunten (aanvallen en afstand houden), alleen bij
+    // het weglopen richting de trap. Alleen de lok-monsters (bijv. Giant Spider).
     var bk = lure.back || [];
     while (lure.i < bk.length - 1 && cheb(bk[lure.i], p) <= 1) lure.i++;
     var goal = bk[lure.i] || cfg.below;
     if (lure.i >= bk.length - 1 && p.x === cfg.below.x && p.y === cfg.below.y) {
-      // Bij de trap: omhoog. Daarna gewoon trap-hoppen.
       st.phase = 'goingUp';
       lure.empties = 0;
       goUp(ctx, p, cfg, now);
       return { mode: 'walking', why: 'lokken: trap op' };
     }
-    if (now - st.since > 90000) {
-      // Vastgelopen op de terugweg: dan maar met het spel zelf lopen.
+    if (now - st.since > 120000) {
+      // Te lang onderweg: zonder vechten naar de trap.
       if (B.api.clearTarget) B.api.clearTarget();
-      B.api.walkTo(goal.x, goal.y, goal.z);
-      return { mode: 'walking', why: 'lokken: terug (vast)' };
+      if (now - st.lastStepAt > 800) { st.lastStepAt = now; B.api.walkTo(goal.x, goal.y, goal.z); }
+      return { mode: 'walking', why: 'lokken: terug (te lang)' };
     }
-    var keep = num(cfg.lureKeep, 4);
-    var md = m ? cheb(m, p) : Infinity;
-    if (md < keep) {
-      // Te dichtbij: een stap weg, en dan richting de tempel.
-      stepAway(ctx, p, goal, now);
-      lure.holdSince = 0;
-      return { mode: 'fighting', why: 'lokken: weg richting tempel' };
+    var only = (Array.isArray(cfg.lureTargets) && cfg.lureTargets.length) ? cfg.lureTargets : null;
+    var tc = Object.assign({}, (ctx.config && ctx.config.targeting) || {});
+    tc.keepDistance = num(cfg.lureKeep, 4);
+    tc.kiteRange = Math.max(tc.keepDistance, num(tc.kiteRange, tc.keepDistance));
+    tc.approachDistance = 0;
+    if (only) { tc.monsters = only.map(function (n) { return { name: n, priority: 1 }; }); tc.attackAll = false; }
+    var tctx = Object.assign({}, ctx, { config: Object.assign({}, ctx.config, { targeting: tc }), kiteHome: { x: cfg.below.x, y: cfg.below.y, z: cfg.below.z } });
+    var t = B.targeting ? safe(function () { return B.targeting.tick(tctx); }) : null;
+    if (t && t.fighting) {
+      if (B.kite) safe(function () { return B.kite.tick(tctx, t.targetId); });
+      return { mode: 'fighting', why: 'lokken: hunten richting trap' };
     }
-    if (m && md <= keep + 2) {
-      // Goede afstand: blijven staan en schieten, dan lopen ze mee.
-      if (!lure.holdSince) lure.holdSince = now;
-      if (now - lure.holdSince < num(cfg.lureHoldMs, 6000)) return { mode: 'fighting', why: 'lokken: schieten' };
-    } else lure.holdSince = 0;
-    stepToward(p, goal, now);
-    return { mode: m ? 'fighting' : 'walking', why: 'lokken: terug' };
+    // Geen lok-monster (meer) in de buurt: naar de trap lopen.
+    if (now - st.lastStepAt > 800 || !p.isWalking) { st.lastStepAt = now; B.api.walkTo(goal.x, goal.y, goal.z); }
+    return { mode: 'walking', why: 'lokken: naar de trap' };
   }
 
   function tick(ctx) {
